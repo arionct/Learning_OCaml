@@ -12,7 +12,7 @@
 let isPrime(n) =
   let test(i:int): bool =
     if n = 2 then true
-    else if n mod i = 0 then false
+    else if i mod n = 0 then false
   in
   if n < 2 then false else int1_forall(n)(test)
 
