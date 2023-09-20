@@ -15,9 +15,23 @@
  you do not make use of recursion.
 
 *)
+let bubble (x, y) : int * int =
+  if x > y then (y, x)
+  else (x, y)
+;;
 
 let sort5: int*int*int*int*int -> int*int*int*int*int =
-  (* YOUR CODE *)
-
+  fun (a, b, c, d, e) ->
+    let (a, b) = bubble (a, b) in
+    let (b, c) = bubble (b, c) in
+    let (c, d) = bubble (c, d) in
+    let (d, e) = bubble (d, e) in
+    let (a, b) = bubble (a, b) in
+    let (b, c) = bubble (b, c) in
+    let (c, d) = bubble (c, d) in
+    let (a, b) = bubble (a, b) in
+    let (b, c) = bubble (b, c) in
+    (a, b, c, d, e)
+;;
 
 (* ************************************************ *)
