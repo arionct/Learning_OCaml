@@ -31,6 +31,7 @@ let sort5: int*int*int*int*int -> int*int*int*int*int =
     let (c, d) = bubble (c, d) in
     let (a, b) = bubble (a, b) in
     let (b, c) = bubble (b, c) in
+    let (a, b) = bubble (a, b) in
     (a, b, c, d, e)
 ;;
 
