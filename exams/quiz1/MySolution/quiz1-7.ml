@@ -11,7 +11,7 @@
 
 let isPrime(n) =
   let test(i:int): bool =
-    if n = 2 then true
+    if i = 1 then true
     else if n mod i = 0 then false
     else true
   in
