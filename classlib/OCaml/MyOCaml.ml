@@ -1,7 +1,8 @@
 (* ****** ****** *)
 (*
-  MyOCaml.ml is a library
-  built for CS320, Fall, 2023
+ MyOCaml.ml
+ is a class library
+ built for CS320, Fall, 2023
 *)
 (* ****** ****** *)
 exception False;;
@@ -237,13 +238,15 @@ let foreach_to_foldleft(foreach: ('xs, 'x0) foreach): 'xs -> 'r0 -> ('r0 -> 'x0 
 ;;(* end of [foreach_to_foldleft]: let *)
 
 (** **)
-let rec foreach_to_map_list(foreach: ('xs, 'x0) foreach): ('xs, 'x0, 'y0) map_list =
-  fun(xs)(fopr) -> list_reverse(foreach_to_map_rlist(foreach)(xs)(fopr)) 
-  and 
-  foreach_to_map_rlist(foreach: ('xs, 'x0) foreach): ('xs, 'x0, 'y0) map_rlist =
-    fun(xs)(fopr) -> 
-      let res = ref([]) in
-        foreach(xs)(fun(x0) -> res := fopr(x0) :: !res); !res
+let rec
+foreach_to_map_list(foreach: ('xs, 'x0) foreach): ('xs, 'x0, 'y0) map_list =
+fun(xs)(fopr) ->
+list_reverse(foreach_to_map_rlist(foreach)(xs)(fopr)) 
+and 
+foreach_to_map_rlist(foreach: ('xs, 'x0) foreach): ('xs, 'x0, 'y0) map_rlist =
+fun(xs)(fopr) -> 
+let res = ref([]) in
+foreach(xs)(fun(x0) -> res := fopr(x0) :: !res); !res
 ;;(* end of [foreach_to_map_rlist]: let *)
 
 (** **)
@@ -364,20 +367,27 @@ let list_make_fwork(fwork: ('x0 -> unit) -> unit): 'x0 list =
     in(*let*)(fwork(work); list_reverse(!res) )
 ;;
 
-(** transforms the work done by fwork into a list in reverse order. **)
-let list_rmake_fwork(fwork: ('x0 -> unit) -> unit): 'x0 list =
+let list_make_filter(test: 'x0 -> bool)(fwork: ('x0 -> unit) -> unit): 'x0 list =
   let res = ref([]) in
-    let work(x0) = (res := (x0 :: !res)) in 
-      (fwork(work); !res)
+    let work(x0) =
+      if test(x0) then (res := (x0 :: !res))
+      in(*let*) (fwork(work); list_reverse(!res))
 ;;
 
 (* ****** ****** *)
 
-(** **)
+(** transforms the work done by fwork into a list in reverse order. **)
+let list_rmake_fwork(fwork: ('x0 -> unit) -> unit): 'x0 list =
+  let res = ref([]) in
+    let work(x0) = (res := (x0 :: !res)) in (fwork(work); !res)
+;;
+
 let list_rmake_filter(test: 'x0 -> bool)(fwork: ('x0 -> unit) -> unit): 'x0 list =
   let res = ref([]) in
     let work(x0) = if test(x0) then (res := (x0 :: !res)) in (fwork(work); !res)
 ;;
+
+(* ****** ****** *)
 
 (** The result of the entire expression is a string that represents the characters processed by the fwork function **)
 let string_make_fwork(fwork: (char -> unit) -> unit): string =
@@ -392,6 +402,8 @@ let string_rmake_fwork(fwork: (char -> unit) -> unit): string =
     Array.of_list(list_rmake_fwork(fwork)) 
   in String.init (Array.length(xs)) (fun i -> xs.(i))
 ;;
+
+(* ****** ****** *)
 
 (** appends two lists together: [1;2;3] [4;5;6] = [1;2;3;4;5;6]**)
 let list_append(xs: 'a list)(ys: 'a list): 'a list =
@@ -416,6 +428,12 @@ string_make_fwork
 ;;
 
 (* ****** ****** *)
+
+let string_append(xs: string)(ys: string): string =
+  string_make_fwork(
+    fun work -> (string_foreach xs work; string_foreach ys work)
+  )
+;;
 
 (** takes a list of strings and gives a string with the strings concatenated **)
 let string_concat_list(css: string list): string =
