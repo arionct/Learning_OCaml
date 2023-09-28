@@ -1,3 +1,7 @@
+import sys
+
+sys.path.append("./../../../../classlib/Python")
+
 def string_merge(cs1, cs2):
     n1 = len(cs1)
     n2 = len(cs2)
