@@ -32,6 +32,8 @@ def string_get_at(cs, i):
     return cs[i]
 
 def string_make_fwork(foreach):
-    def fn(cs):
-        return ''.join(foreach(i, lambda x: x) for i in cs)
-    return fn
+    xs = []
+    def charwork(c):
+        xs.append(c)
+    foreach(charwork)
+    return ''.join(xs)

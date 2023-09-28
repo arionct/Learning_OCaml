@@ -2,12 +2,12 @@ import sys
 sys.path.append("./../../../../classlib/Python")
 
 def fnlist_make_fwork(fopr):
-  #acc = []
+  acc = []
   def fn(xs):
     newxs = fopr(xs)
-    #acc.append(newxs)
-    #fopr(xs)
-    return newxs
+    acc.append(newxs)
+    fopr(xs)
+    return acc
   return fn
 
 
