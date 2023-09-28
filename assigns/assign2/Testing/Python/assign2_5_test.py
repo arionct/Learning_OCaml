@@ -11,6 +11,15 @@ sys.path.append("./../../../../classlib/Python")
 from MyPython import *
 from assign2_5 import *
 ######################################################
+
+def fnlist_make_fwork(fopr):
+    def fn(xs):
+        acc = []
+        for x in xs:
+            acc.append(fopr(x))
+        return acc
+    return fn
+
 assert(fnlist_make_fwork(lambda work: work(0)).cons1 == 0)
 assert(fnlist_make_fwork(lambda work: work(1)).cons1 == 1)
 assert(fnlist_make_fwork(lambda work: work(2)).cons1 == 2)
