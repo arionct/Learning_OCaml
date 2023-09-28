@@ -5,6 +5,8 @@ def string_merge(cs1, cs2):
     n1 = string_length(cs1)
     n2 = string_length(cs2)
     
+    store = []
+
     def foreach(i1, i2, work):
         if i1 < n1:
             if i2 < n2:
@@ -23,7 +25,8 @@ def string_merge(cs1, cs2):
             for iter in range(i2, n2):
                 work(cs2[iter])
 
-    return ''.join(foreach(0, 0, lambda x: [x]))
+    foreach(0, 0, store.append)
+    return ''.join(store)
 
 def string_length(cs):
     return len(cs)
