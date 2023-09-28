@@ -6,4 +6,4 @@ def fnlist_make_fwork(fopr):
   def fn(xs):
     acc.append(xs)
   fopr(fn)
-  return acc
+  return acc[0]
