@@ -2,6 +2,6 @@ def fnlist_make_fwork(fopr):
     def fn(xs):
         acc = []
         for x in xs:
-            acc.append(fopr(x))
+            acc.insert(0, fopr(x))
         return acc
     return fn
