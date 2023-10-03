@@ -76,6 +76,10 @@ let rec
 mylist_length(xs: 'a mylist): int = ...
 //
 *)
+(*
+let mylist_length =
+fun xs -> foreach_to_length(mylist_foreach)
+*)
 
 (* ****** ****** *)
 let
@@ -99,7 +103,21 @@ let rec
 mylist_get_at(xs: 'a mylist)(i0: int): 'a = ...
 //
 *)
-
+(*
+let mylist_get_at =
+fun xs -> foreach_to_get_at(mylist_foreach)
+*)
+(* ****** ****** *)
+(*
+let
+foreach_to_map_list
+( foreach
+: ('xs, 'x0) foreach): ('xs, 'x0, 'y0) map_list =
+fun xs fopr ->
+list_make_fwork
+(fun work -> foreach(xs)(fun x -> work(fopr(x))))
+;;
+*)
 (* ****** ****** *)
 
 type
