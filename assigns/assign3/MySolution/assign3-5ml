@@ -1,0 +1,33 @@
+#use "./../../../classlib/OCaml/MyOCaml.ml";;
+
+type board_t = int * int * int * int * int * int * int * int
+
+let queen8_puzzle_solve (): board_t list =
+  let initial_board = (0, 0, 0, 0, 0, 0, 0, 0) in
+
+  let valid_placement (board: board_t) (col: int) (row: int) : bool =
+    let rec is_safe c r = 
+      if c = 0 then true
+      else 
+        let prev_col = board_t (col - c) in
+        prev_col <> r && prev_col <> r + c && prev_col <> r - c && is_safe (c-1) r
+    in
+    is_safe col row
+  in
+
+  let place_queen (board: board_t) (col: int) (row: int) : board_t =
+    let new_board = Array.copy board in
+    new_board.(col) <- row;
+    new_board
+  in
+
+  let add_queen (boards: board_t list) (col: int) (row: int) : board_t list =
+    List.filter (fun board -> valid_placement board col row) (List.map (fun board -> place_queen board col row) boards)
+  in
+
+  let cols = [0; 1; 2; 3; 4; 5; 6; 7] in
+
+  List.fold_left 
+    (fun boards col -> List.fold_left (fun bds row -> add_queen bds col row) boards [0; 1; 2; 3; 4; 5; 6; 7])
+    [initial_board] cols
+;;
