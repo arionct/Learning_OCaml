@@ -1,4 +1,4 @@
-#use "./../../../classlib/OCaml/MyOCaml.ml";;
+#use "./../../../../classlib/OCaml/MyOCaml.ml";;
 
 let list_of_buddies(word: string): string list =
   let n = String.length word in
