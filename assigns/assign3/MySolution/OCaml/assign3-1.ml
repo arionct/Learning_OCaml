@@ -1,12 +1,18 @@
 #use "./../../../../classlib/OCaml/MyOCaml.ml";;
 
+let list_map = fun xs -> foreach_to_map_list(list_foreach)(xs)
 
-let rec matrix_transpose(xss: 'a list list): 'a list list =
+let list_head : 'a list -> 'a = fun xs -> match xs with
+  | [] -> failwith "list_head"
+  | x :: _ -> x
+
+let list_tail : 'a list -> 'a list = fun xs -> match xs with
+  | [] -> failwith "list_tail"
+  | _ :: xs' -> xs'
+
+let rec matrix_transpose (xss: 'a list list) : 'a list list =
   match xss with
-  | [] -> [] (* If the matrix is empty, return an empty matrix *)
-  | [] :: _ -> [] (* If any of the inner lists is empty, return an empty matrix *)
-  | _ ->
-    let head_column = foreach_to_listize(list_foreach)(xss)(fun xs -> List.hd xs) in
-    let tail_matrix = foreach_to_listize(list_foreach)(xss)(fun xs -> List.tl xs) in
-    head_column :: matrix_transpose(tail_matrix)
+  | [] -> []
+  | [] :: _ -> []
+  | _ -> (list_map (fun x -> [list_head x]) xss) :: matrix_transpose (list_map (fun x -> list_tail x) xss)
 ;;

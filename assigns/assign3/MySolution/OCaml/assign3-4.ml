@@ -27,4 +27,3 @@ let list_of_buddies(word: string): string list =
   done;
   !buddies
 ;;
-
