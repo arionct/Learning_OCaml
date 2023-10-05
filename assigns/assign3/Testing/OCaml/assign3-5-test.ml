@@ -32,11 +32,14 @@ foreach_to_foldleft
 
 let () = assert
 (
-list_forall
+list_foreach
 (the_solutions)
 (
-fun bd ->
-let sum = board_sum(bd) in sum = 28 || sum = 36));;
+  fun bd ->
+    let sum = board_sum(bd) in 
+    if sum <> 28 && sum <> 36 then
+      print_endline (string_of_int sum))
+);;
 
 (* ****** ****** *)
 
