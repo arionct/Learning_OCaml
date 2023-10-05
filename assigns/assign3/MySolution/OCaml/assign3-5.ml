@@ -17,9 +17,38 @@ let add_queen (board: board_t) col =
 
 let generate_board col = (col, 0, 0, 0, 0, 0, 0, 0)
 
-let queen8_puzzle_solve () =
-  let range = list_make_fwork (fun work -> int1_foreach 8 work) in
-  let safe_col = list_make_fwork (fun work -> list_foreach range (fun col -> work (generate_board col, col))) in
+let queen8_puzzle_solve (): board_t list =
+  let rec range start stop =
+    if start > stop then []
+    else start :: range (start + 1) stop
+  in
+  
+  let safe_rows = range 1 8 in
+  
+  let safe_cols = range 1 8 in
+
+  let generate_board row col =
+    (row, col, 0, 0, 0, 0, 0, 0)
+  in
+
+  let add_queen (board, col) =
+    let try_row row =
+      let result = ref [] in
+      let r = ref row in
+      while !r <= 8 do
+        if not (!r = fst board || col = snd board || abs (!r - fst board) = abs (col - snd board)) then
+          result := (!r, col) :: !result;
+        r := !r + 1
+      done;
+      !result
+    in
+    try_row 1
+  in
+
+  let safe_col = foreach_to_listize (list_foreach safe_cols) (fun col -> (generate_board 1 col, col)) in
+
   let boards = list_map safe_col (fun (board, col) -> add_queen board col) in
-  let final_boards = [] in
-  final_boards
+
+  let final_boards = list_make_filter (fun board -> string_length (string_filter (string_of_int (fst board)) (fun c -> c = ' ')) = 8) (fun (_, board) -> list_make_fwork (fun work -> string_foreach (string_of_int board) work)) in
+
+  list_map final_boards (fun board -> board)
