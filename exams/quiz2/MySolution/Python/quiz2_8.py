@@ -20,4 +20,8 @@
 # *)
 
 def foreach_to_get_at(foreach): # your implementation below
-
+  def get_at(lst, i):
+    if i < 0 or i > lst.length - 1:
+      raise Exception("Subscript")
+    return lst[i]
+  return get_at

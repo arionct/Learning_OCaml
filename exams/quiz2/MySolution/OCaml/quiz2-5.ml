@@ -10,5 +10,10 @@ is empty, raise the Empty exception
 
 (* ************************************************ *)
 
+#use "./../../../../classlib/OCaml/MyOCaml.ml";;
+
 exception Empty
-let list_last(xs: 'a list): 'a = ....
+let list_last(xs: 'a list): 'a = 
+  match xs with
+  | [] -> raise Empty
+  | h :: _ -> list_foldright (fun x acc -> x) xs (h)

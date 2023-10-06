@@ -17,4 +17,9 @@ match xs with
 
 (* ************************************************ *)
 
-let list_append(xs: 'a list): 'a list = ....
+#use "./../../../../classlib/OCaml/MyOCaml.ml";;
+
+let list_append(xs: 'a list): 'a list = 
+  let fold_fn acc x = x :: acc in
+  let reversed_xs = list_foldleft fold_fn xs [] in
+  list_foldleft fold_fn ys (list_foldleft fold_fn reversed_xs [])

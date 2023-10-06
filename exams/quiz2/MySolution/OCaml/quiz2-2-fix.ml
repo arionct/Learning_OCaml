@@ -6,3 +6,4 @@ mystery2 = church_three(fun x -> x * x)(2)
 
 What is the value of mystery2 ? Your answer:
 *)
+266
