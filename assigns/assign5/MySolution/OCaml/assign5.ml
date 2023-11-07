@@ -47,18 +47,13 @@ let rec trim cs =
 
 *)
 
-let get_option_value opt default =
-  match opt with
-  | Some v -> v
-  | None -> default
-
 let parse_digit (c : char) : expr option = 
   match c with
   | '0'..'9' as digit -> Some (Int (int_of_char digit - int_of_char '0'))
   | _ -> None
 
 let rec parse_num (cs : char list) : (expr * char list) option = 
-  match cs with
+  match (trim cs) with
   | x :: xs ->
     begin match parse_digit x with
     | Some (Int n) ->
@@ -102,3 +97,23 @@ let parse (s : string) : expr option =
   | Some (exp, []) -> Some exp
   | _ -> None
 
+(* Since OCaml's print_endline function only takes a string, we need to convert our expr option to a string before printing. *)
+
+let rec string_of_expr = function
+  | Int n -> string_of_int n
+  | Add exprs -> "(add " ^ String.concat " " (List.map string_of_expr exprs) ^ ")"
+  | Mul exprs -> "(mul " ^ String.concat " " (List.map string_of_expr exprs) ^ ")"
+
+let print_expr_option = function
+  | Some expr -> print_endline (string_of_expr expr)
+  | None -> print_endline "None"
+
+(* Tests *)
+let () =
+  print_expr_option (parse "(add 1 2 3)");
+  print_expr_option (parse "(mul (add 1 2) 3 (mul 1))");
+  print_endline "-------------------";
+  print_expr_option (parse "()");
+  print_expr_option (parse "(add)");
+  print_expr_option (parse "(add 1 2))");
+  print_expr_option (parse "((mul 1 2)");
