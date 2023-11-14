@@ -144,3 +144,26 @@ let sexpr_parse (s : string) : sexpr option =
   match parse_sexpr cs with
   | Some (e, []) -> Some e
   | _ -> None
+
+
+  
+let rec int_to_string (n: int) : string =
+  if n < 10 then str (char_of_digit n)
+  else int_to_string (n / 10) ^ str (char_of_digit (n mod 10))
+
+let rec concat (s1: string) (s2: string) : string =
+  match string_listize s1 with
+  | [] -> s2
+  | c :: cs -> str c ^ concat (list_tl cs) s2
+
+and sexprs_to_string (es: sexpr list) : string =
+  match es with
+  | [] -> ""
+  | [e] -> sexpr_to_string e
+  | e :: es -> concat (sexpr_to_string e) (concat " " (sexprs_to_string es))
+
+and sexpr_to_string (e: sexpr) : string =
+  match e with
+  | SInt n -> int_to_string n
+  | SAdd es -> concat "(add " (concat (sexprs_to_string es) ")")
+  | SMul es -> concat "(mul " (concat (sexprs_to_string es) ")")
