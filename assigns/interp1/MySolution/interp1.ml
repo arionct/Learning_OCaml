@@ -15,7 +15,6 @@ Notes:
 (* Types for constants and commands *)
 type digit = int
 type nat = int
-type int = int
 type bool = True | False
 type const = Int of int | Bool of bool | Unit
 
@@ -35,20 +34,20 @@ type command =
 
 (* Helper function to parse a single character *)
 let parse_char c s =
-  if String_length s > 0 && s.[0] = c then Some (String.sub s 1 (String_length s - 1))
+  if String.length s > 0 && s.[0] = c then Some (String.sub s 1 (String.length s - 1))
   else None
 
 (* Helper function to parse a specific string *)
 let rec parse_string str s =
-  if String_length s >= String_length str && String.sub s 0 (String_length str) = str
-  then Some (String.sub s (String_length str) (String_length s - String_length str))
+  if String.length s >= String.length str && String.sub s 0 (String.length str) = str
+  then Some (String.sub s (String.length str) (String.length s - String.length str))
   else None
 
 
 (* Parser for a single digit *)
 let parse_digit s =
-   if String_length s > 0 && s.[0] >= '0' && s.[0] <= '9' then
-     Some (int_of_char s.[0] - int_of_char '0', String.sub s 1 (String_length s - 1))
+   if String.length s > 0 && s.[0] >= '0' && s.[0] <= '9' then
+     Some (int_of_char s.[0] - int_of_char '0', String.sub s 1 (String.length s - 1))
    else None
  
 (* Parser for natural numbers *)
@@ -62,8 +61,8 @@ let rec parse_nat s =
  
 (* Parser for integers *)
 let parse_int s =
-   if String_length s > 0 && s.[0] = '-' then
-     match parse_nat (String.sub s 1 (String_length s - 1)) with
+   if String.length s > 0 && s.[0] = '-' then
+     match parse_nat (String.sub s 1 (String.length s - 1)) with
      | Some (n, rest) -> Some (-n, rest)
      | None -> None
    else parse_nat s
@@ -135,7 +134,7 @@ let parse_command s =
        
 (* Parser for command sequences *)
 let rec parse_commands s =
-   if String_length s = 0 then Some ([], "")
+   if String.length s = 0 then Some ([], "")
    else
    match parse_command s with
    | Some (cmd, rest) ->
@@ -189,11 +188,72 @@ let exec_command state command =
       (match state.stack with
        | c :: rest -> { stack = Unit :: rest; trace = (string_of_const c) :: state.trace }
        | [] -> raise (Failure "Trace on empty stack"))
-  | Add ->
+   | Add ->
       (match state.stack with
-       | a :: b :: rest -> { state with stack = (binary_op (+) a b) :: rest }
-       | _ -> raise (Failure "Insufficient operands for Add"))
-  (* ... Implement other commands like Sub, Mul, Div, And, Or, Not, Lt, Gt ... *)
+         | a :: b :: rest ->
+            (match binary_op (+) a b with
+            | Some result -> { state with stack = result :: rest }
+            | None -> raise (Failure "Invalid operands for Add"))
+      | _ -> raise (Failure "Insufficient operands for Add"))
+   | Sub ->
+      (match state.stack with
+         | a :: b :: rest ->
+            (match binary_op (-) a b with
+            | Some result -> { state with stack = result :: rest }
+            | None -> raise (Failure "Invalid operands for Sub"))
+      | _ -> raise (Failure "Insufficient operands for Sub"))
+   | Mul ->
+      (match state.stack with
+         | a :: b :: rest ->
+            (match binary_op ( * ) a b with
+            | Some result -> { state with stack = result :: rest }
+            | None -> raise (Failure "Invalid operands for Mul"))
+      | _ -> raise (Failure "Insufficient operands for Mul"))
+   | Div ->
+      (match state.stack with
+         | a :: b :: rest ->
+            (match binary_op (/) a b with
+            | Some result -> { state with stack = result :: rest }
+            | None -> raise (Failure "Invalid operands for Div"))
+      | _ -> raise (Failure "Insufficient operands for Div"))
+   | And ->
+      (match state.stack with
+         | a :: b :: rest ->
+            (match (a, b) with
+            | (Bool True, Bool True) -> { state with stack = Bool True :: rest }
+            | (Bool False, Bool False) -> { state with stack = Bool False :: rest }
+            | _ -> raise (Failure "Invalid operands for And"))
+      | _ -> raise (Failure "Insufficient operands for And"))
+   | Or ->
+      (match state.stack with
+         | a :: b :: rest ->
+            (match (a, b) with
+            | (Bool True, Bool True) -> { state with stack = Bool True :: rest }
+            | (Bool False, Bool False) -> { state with stack = Bool False :: rest }
+            | _ -> raise (Failure "Invalid operands for Or"))
+      | _ -> raise (Failure "Insufficient operands for Or"))
+   | Not ->
+      (match state.stack with
+         | a :: rest ->
+            (match a with
+            | Bool True -> { state with stack = Bool False :: rest }
+            | Bool False -> { state with stack = Bool True :: rest }
+            | _ -> raise (Failure "Invalid operand for Not"))
+      | _ -> raise (Failure "Insufficient operands for Not"))
+   | Lt ->
+      (match state.stack with
+         | a :: b :: rest ->
+            (match (a, b) with
+            | (Int n1, Int n2) -> { state with stack = (if n1 < n2 then Bool True else Bool False) :: rest }
+            | _ -> raise (Failure "Invalid operands for Lt"))
+      | _ -> raise (Failure "Insufficient operands for Lt"))
+   | Gt ->
+      (match state.stack with
+         | a :: b :: rest ->
+            (match (a, b) with
+            | (Int n1, Int n2) -> { state with stack = (if n1 > n2 then Bool True else Bool False) :: rest }
+            | _ -> raise (Failure "Invalid operands for Gt"))
+      | _ -> raise (Failure "Insufficient operands for Gt"))
   | _ -> raise (Failure "Unimplemented command")
 
 (* Function to execute a sequence of commands *)
