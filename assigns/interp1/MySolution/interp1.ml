@@ -153,8 +153,6 @@ let parse_program s =
    | Some (cmds, "") -> Some cmds  (* Successfully parsed commands and no remaining string *)
    | _ -> None  (* Partially parsed commands or a parsing failure *)
 
- 
- 
 
 
 (* State of the interpreter *)
@@ -177,84 +175,71 @@ let binary_op f op1 op2 =
   | _ -> None
 
 (* Function to execute a single command *)
-let exec_command state command =
-  match command with
-  | Push c -> { state with stack = c :: state.stack }
-  | Pop ->
-      (match state.stack with
-       | _ :: rest -> { state with stack = rest }
-       | [] -> raise (Failure "Pop on empty stack"))
-  | Trace ->
-      (match state.stack with
-       | c :: rest -> { stack = Unit :: rest; trace = (string_of_const c) :: state.trace }
-       | [] -> raise (Failure "Trace on empty stack"))
-   | Add ->
-      (match state.stack with
-         | a :: b :: rest ->
-            (match binary_op (+) a b with
-            | Some result -> { state with stack = result :: rest }
-            | None -> raise (Failure "Invalid operands for Add"))
-      | _ -> raise (Failure "Insufficient operands for Add"))
-   | Sub ->
-      (match state.stack with
-         | a :: b :: rest ->
-            (match binary_op (-) a b with
-            | Some result -> { state with stack = result :: rest }
-            | None -> raise (Failure "Invalid operands for Sub"))
-      | _ -> raise (Failure "Insufficient operands for Sub"))
-   | Mul ->
-      (match state.stack with
-         | a :: b :: rest ->
-            (match binary_op ( * ) a b with
-            | Some result -> { state with stack = result :: rest }
-            | None -> raise (Failure "Invalid operands for Mul"))
-      | _ -> raise (Failure "Insufficient operands for Mul"))
-   | Div ->
-      (match state.stack with
-         | a :: b :: rest ->
-            (match binary_op (/) a b with
-            | Some result -> { state with stack = result :: rest }
-            | None -> raise (Failure "Invalid operands for Div"))
-      | _ -> raise (Failure "Insufficient operands for Div"))
-   | And ->
-      (match state.stack with
-         | a :: b :: rest ->
-            (match (a, b) with
-            | (Bool True, Bool True) -> { state with stack = Bool True :: rest }
-            | (Bool False, Bool False) -> { state with stack = Bool False :: rest }
-            | _ -> raise (Failure "Invalid operands for And"))
-      | _ -> raise (Failure "Insufficient operands for And"))
-   | Or ->
-      (match state.stack with
-         | a :: b :: rest ->
-            (match (a, b) with
-            | (Bool True, Bool True) -> { state with stack = Bool True :: rest }
-            | (Bool False, Bool False) -> { state with stack = Bool False :: rest }
-            | _ -> raise (Failure "Invalid operands for Or"))
-      | _ -> raise (Failure "Insufficient operands for Or"))
-   | Not ->
-      (match state.stack with
-         | a :: rest ->
-            (match a with
-            | Bool True -> { state with stack = Bool False :: rest }
-            | Bool False -> { state with stack = Bool True :: rest }
-            | _ -> raise (Failure "Invalid operand for Not"))
-      | _ -> raise (Failure "Insufficient operands for Not"))
-   | Lt ->
-      (match state.stack with
-         | a :: b :: rest ->
-            (match (a, b) with
-            | (Int n1, Int n2) -> { state with stack = (if n1 < n2 then Bool True else Bool False) :: rest }
-            | _ -> raise (Failure "Invalid operands for Lt"))
-      | _ -> raise (Failure "Insufficient operands for Lt"))
-   | Gt ->
-      (match state.stack with
-         | a :: b :: rest ->
-            (match (a, b) with
-            | (Int n1, Int n2) -> { state with stack = (if n1 > n2 then Bool True else Bool False) :: rest }
-            | _ -> raise (Failure "Invalid operands for Gt"))
-      | _ -> raise (Failure "Insufficient operands for Gt"))
-  | _ -> raise (Failure "Unimplemented command")
+let exec_command : coms -> config -> config option = 
+   fun cmd (stack, trace, prog) -> (
+      match cmd with
+      | Push c -> Some (c :: stack, trace, prog)
+      | Pop -> (
+         match stack with
+         | [] -> Some ([], "Panic" :: trace, [])
+         | _ :: rest -> Some (rest, trace, prog) 
+      )
+      | Trace -> (
+         match stack with
+         | [] -> Some ([], "Panic" :: trace, []) 
+         | c :: rest -> Some (Unit :: rest, toString (c) :: trace, prog)
+      )
+      | Add -> (
+         match stack with
+         | Int i :: Int j :: rest ->  Some (Int (i + j) :: rest, trace, prog)
+         | _ -> Some ([], "Panic" :: trace, [])
+      )
+      | Sub -> (
+         match stack with
+         | Int i :: Int j :: rest -> Some (Int (i - j) :: rest, trace, prog)
+         | _ -> Some ([], "Panic" :: trace, [])
+      )
+      | Mul -> (
+         match stack with 
+         | Int i :: Int j :: rest -> Some (Int (i * j) :: rest, trace, prog)
+         | _ -> Some ([], "Panic" :: trace, [])
+      )
+      | Div -> (
+         match stack with
+         | Int i :: Int j :: rest ->
+            if j = 0 then Some ([], "Panic" :: trace, [])
+            else Some (Int (i / j) :: rest, trace, prog)
+         | _ -> Some ([], "Panic" :: trace, [])
+      )
+      | And -> (
+         match stack with
+         | Bool a :: Bool b :: rest -> Some (Bool (a && b) :: rest, trace, prog)
+         | _ :: _ :: _ -> Some ([], "Panic" :: trace, [])
+         | _ -> Some ([], "Panic" :: trace, [])
+      )
+      | Or -> (
+         match stack with
+         | Bool a :: Bool b :: rest -> Some (Bool (a || b) :: rest, trace, prog)
+         | _ :: _ :: _ -> Some ([], "Panic" :: trace, [])
+         | _ -> Some ([], "Panic" :: trace, [])
+      )
+      | Not -> (
+         match stack with
+         | Bool a :: rest -> Some (Bool (not a) :: rest, trace, prog)
+         | _ -> Some ([], "Panic" :: trace, [])
+      )
+      | Lt -> (
+         match stack with 
+         | Int i :: Int j :: rest -> Some (Bool (i < j) :: rest, trace, prog)
+         | _ -> Some ([], "Panic" :: trace, [])
+      )
+      | Gt -> (
+         match stack with
+         | Int i :: Int j :: rest -> Some (Bool (i > j) :: rest, trace, prog)
+         | _ -> Some ([], "Panic" :: trace, [])
+      )
+   )
+;;
 
 (* Function to execute a sequence of commands *)
 let rec exec_commands state commands =
