@@ -118,6 +118,8 @@ let string_init = String.init;;
 (** length s is the length (number of bytes/characters) of s **)
 let string_length = String.length;;
 
+let string_sub = String.sub;;
+
 (** read the contents of file into a string **)
 let string_of_file(path: string) =
   let fp = open_in path in
