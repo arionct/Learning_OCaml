@@ -34,20 +34,20 @@ type command =
 
 (* Helper function to parse a single character *)
 let parse_char c s =
-  if string_length s > 0 && s.[0] = c then Some (String.sub s 1 (string_length s - 1))
+  if string_length s > 0 && s.[0] = c then Some (string_sub s 1 (string_length s - 1))
   else None
 
 (* Helper function to parse a specific string *)
 let rec parse_string str s =
-  if string_length s >= string_length str && String.sub s 0 (string_length str) = str
-  then Some (String.sub s (string_length str) (string_length s - string_length str))
+  if string_length s >= string_length str && string_sub s 0 (string_length str) = str
+  then Some (string_sub s (string_length str) (string_length s - string_length str))
   else None
 
 
 (* Parser for a single digit *)
 let parse_digit s =
    if string_length s > 0 && s.[0] >= '0' && s.[0] <= '9' then
-     Some (int_of_char s.[0] - int_of_char '0', String.sub s 1 (string_length s - 1))
+     Some (int_of_char s.[0] - int_of_char '0', string_sub s 1 (string_length s - 1))
    else None
  
 (* Parser for natural numbers *)
@@ -62,7 +62,7 @@ let rec parse_nat s =
 (* Parser for integers *)
 let parse_int s =
    if string_length s > 0 && s.[0] = '-' then
-     match parse_nat (String.sub s 1 (string_length s - 1)) with
+     match parse_nat (string_sub s 1 (string_length s - 1)) with
      | Some (n, rest) -> Some (-n, rest)
      | None -> None
    else parse_nat s
@@ -156,10 +156,16 @@ let parse_program s =
 
 
 (* State of the interpreter *)
-type state = {
-  stack: const list;
-  trace: string list;
-}
+(*type config = {
+    stack: const list;
+    trace: string list;
+    prog: command list;
+}*)
+
+type stack = const list
+type trace = string list
+type prog = command list
+type config = stack * trace * prog
 
 (* Helper function to convert const to string *)
 let string_of_const = function
@@ -174,8 +180,15 @@ let binary_op f op1 op2 =
   | (Int n1, Int n2) -> Some (Int (f n1 n2))
   | _ -> None
 
+let toString = function
+  | Int n -> string_of_int n
+  | Bool True -> "True"
+  | Bool False -> "False"
+  | Unit -> "Unit"
+
+
 (* Function to execute a single command *)
-let exec_command : coms -> config -> config option = 
+let exec_command : command -> config -> config option = 
    fun cmd (stack, trace, prog) -> (
       match cmd with
       | Push c -> Some (c :: stack, trace, prog)
@@ -212,48 +225,56 @@ let exec_command : coms -> config -> config option =
          | _ -> Some ([], "Panic" :: trace, [])
       )
       | And -> (
-         match stack with
-         | Bool a :: Bool b :: rest -> Some (Bool (a && b) :: rest, trace, prog)
-         | _ :: _ :: _ -> Some ([], "Panic" :: trace, [])
-         | _ -> Some ([], "Panic" :: trace, [])
-      )
-      | Or -> (
-         match stack with
-         | Bool a :: Bool b :: rest -> Some (Bool (a || b) :: rest, trace, prog)
-         | _ :: _ :: _ -> Some ([], "Panic" :: trace, [])
-         | _ -> Some ([], "Panic" :: trace, [])
-      )
-      | Not -> (
-         match stack with
-         | Bool a :: rest -> Some (Bool (not a) :: rest, trace, prog)
-         | _ -> Some ([], "Panic" :: trace, [])
-      )
-      | Lt -> (
-         match stack with 
-         | Int i :: Int j :: rest -> Some (Bool (i < j) :: rest, trace, prog)
-         | _ -> Some ([], "Panic" :: trace, [])
-      )
-      | Gt -> (
-         match stack with
-         | Int i :: Int j :: rest -> Some (Bool (i > j) :: rest, trace, prog)
-         | _ -> Some ([], "Panic" :: trace, [])
-      )
+    match stack with
+    | Bool a :: Bool b :: rest -> Some (Bool (match (a, b) with
+                                                | (True, True) -> True
+                                                | _ -> False) :: rest, trace, prog)
+    | _ :: _ :: _ -> Some ([], "Panic" :: trace, [])
+    | _ -> Some ([], "Panic" :: trace, [])
+)
+| Or -> (
+   match stack with
+   | Bool a :: Bool b :: rest -> Some (Bool (match (a, b) with
+                                               | (False, False) -> False
+                                               | _ -> True) :: rest, trace, prog)
+   | _ :: _ :: _ -> Some ([], "Panic" :: trace, [])
+   | _ -> Some ([], "Panic" :: trace, [])
+)
+| Not -> (
+   match stack with
+   | Bool a :: rest -> Some (Bool (match a with
+                                     | True -> False
+                                     | False -> True) :: rest, trace, prog)
+   | _ -> Some ([], "Panic" :: trace, [])
+)
+| Lt -> (
+    match stack with
+    | Int i :: Int j :: rest -> Some (Bool (if i < j then True else False) :: rest, trace, prog)
+    | _ -> Some ([], "Panic" :: trace, [])
+)
+| Gt -> (
+    match stack with
+    | Int i :: Int j :: rest -> Some (Bool (if i > j then True else False) :: rest, trace, prog)
+    | _ -> Some ([], "Panic" :: trace, [])
+)
    )
 ;;
 
 (* Function to execute a sequence of commands *)
-let rec exec_commands state commands =
-  match commands with
-  | [] -> state
-  | cmd :: rest ->
-      let new_state = exec_command state cmd in
-      exec_commands new_state rest
+let rec exec_commands (stack, trace, prog) =
+   match prog with
+   | [] -> (stack, trace, prog)
+   | cmd :: rest ->
+       (match exec_command cmd (stack, trace, rest) with
+       | Some new_config -> exec_commands new_config
+       | None -> (stack, trace, rest))  (* Handle the case where exec_command returns None *)
+;;
 
 (* Interpreter function *)
 let interp (s : string) : string list option =
-  match parse_program s with
-  | Some cmds ->
-      let initial_state = { stack = []; trace = [] } in
-      let final_state = exec_commands initial_state cmds in
-      Some (List.rev final_state.trace)
-  | None -> None
+   match parse_program s with
+   | Some cmds ->
+       let initial_config = ([], [], cmds) in
+       let (_, final_trace, _) = exec_commands initial_config in
+       Some (List.rev final_trace)
+   | None -> None
