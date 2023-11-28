@@ -34,20 +34,20 @@ type command =
 
 (* Helper function to parse a single character *)
 let parse_char c s =
-  if string_length s > 0 && s.[0] = c then Some (string_sub s 1 (string_length s - 1))
+  if string_length s > 0 && s.[0] = c then Some (String.sub s 1 (string_length s - 1))
   else None
 
 (* Helper function to parse a specific string *)
 let rec parse_string str s =
-  if string_length s >= string_length str && string_sub s 0 (string_length str) = str
-  then Some (string_sub s (string_length str) (string_length s - string_length str))
+  if string_length s >= string_length str && String.sub s 0 (string_length str) = str
+  then Some (String.sub s (string_length str) (string_length s - string_length str))
   else None
 
 
 (* Parser for a single digit *)
 let parse_digit s =
    if string_length s > 0 && s.[0] >= '0' && s.[0] <= '9' then
-     Some (int_of_char s.[0] - int_of_char '0', string_sub s 1 (string_length s - 1))
+     Some (int_of_char s.[0] - int_of_char '0', String.sub s 1 (string_length s - 1))
    else None
  
 (* Parser for natural numbers *)
@@ -62,7 +62,7 @@ let rec parse_nat s =
 (* Parser for integers *)
 let parse_int s =
    if string_length s > 0 && s.[0] = '-' then
-     match parse_nat (string_sub s 1 (string_length s - 1)) with
+     match parse_nat (String.sub s 1 (string_length s - 1)) with
      | Some (n, rest) -> Some (-n, rest)
      | None -> None
    else parse_nat s
