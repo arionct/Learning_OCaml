@@ -270,11 +270,20 @@ let rec exec_commands (stack, trace, prog) =
        | None -> (stack, trace, rest))  (* Handle the case where exec_command returns None *)
 ;;
 
+(* Custom function to reverse a list *)
+let reverse_list lst =
+   let rec reverse_aux acc = function
+     | [] -> acc
+     | head :: tail -> reverse_aux (head :: acc) tail
+   in
+   reverse_aux [] lst
+ 
+
 (* Interpreter function *)
 let interp (s : string) : string list option =
    match parse_program s with
    | Some cmds ->
        let initial_config = ([], [], cmds) in
        let (_, final_trace, _) = exec_commands initial_config in
-       Some (List.rev final_trace)
+       Some (reverse_list final_trace)
    | None -> None
