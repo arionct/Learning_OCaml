@@ -13,277 +13,221 @@ Notes:
 *)
 
 (* Types for constants and commands *)
-type digit = int
-type nat = int
-type bool = True | False
-type const = Int of int | Bool of bool | Unit
 
-type command =
-  | Push of const
-  | Pop
+type constants =
+  | Int of int
+  | Bool of bool
+  | Unit of unit
+
+type commands = 
+  | Push of constants 
+  | Pop 
   | Trace
-  | Add
-  | Sub
-  | Mul
+  | Add 
+  | Sub 
+  | Mul 
   | Div
-  | And
-  | Or
+  | And 
+  | Or 
   | Not
-  | Lt
+  | Lt 
   | Gt
 
-(* Helper function to parse a single character *)
-let parse_char c s =
-  if string_length s > 0 && s.[0] = c then Some (String.sub s 1 (string_length s - 1))
-  else None
 
-(* Helper function to parse a specific string *)
-let rec parse_string str s =
-  if string_length s >= string_length str && String.sub s 0 (string_length str) = str
-  then Some (String.sub s (string_length str) (string_length s - string_length str))
-  else None
+let rec p_int acc = function
+   | c :: cs when c >= '0' && c <= '9' -> p_int (10 * acc + (int_of_char c - int_of_char '0')) cs
+   | cs -> acc
 
+let exam_stack(cons : constants list * string list) : constants list =
+   match cons with
+   | (stack, _) -> stack
 
-(* Parser for a single digit *)
-let parse_digit s =
-   if string_length s > 0 && s.[0] >= '0' && s.[0] <= '9' then
-     Some (int_of_char s.[0] - int_of_char '0', String.sub s 1 (string_length s - 1))
-   else None
- 
-(* Parser for natural numbers *)
-let rec parse_nat s =
-   match parse_digit s with
-   | Some (d, rest) ->
-       (match parse_nat rest with
-        | Some (n, rest') -> Some (d * 10 + n, rest')
-        | None -> Some (d, rest))
-   | None -> None
- 
-(* Parser for integers *)
-let parse_int s =
-   if string_length s > 0 && s.[0] = '-' then
-     match parse_nat (String.sub s 1 (string_length s - 1)) with
-     | Some (n, rest) -> Some (-n, rest)
-     | None -> None
-   else parse_nat s
- 
-(* Parser for boolean values *)
-let parse_bool s =
-   match parse_string "True" s with
-   | Some rest -> Some (True, rest)
-   | None ->
-       (match parse_string "False" s with
-        | Some rest -> Some (False, rest)
-        | None -> None)
- 
-(* Parser for constants *)
-let parse_const s =
-   match parse_int s with
-   | Some (n, rest) -> Some (Int n, rest)
-   | None ->
-       (match parse_bool s with
-        | Some (b, rest) -> Some (Bool b, rest)
-        | None ->
-           (match parse_string "Unit" s with
-            | Some rest -> Some (Unit, rest)
-            | None -> None))
+let exam(cons : constants list * string list) : string list =
+   match cons with
+   | (_, list_of_strings) -> list_of_strings
 
-            
-(* Parser for individual commands *)
-let parse_command s =
-   match parse_string "Push " s with
-   | Some rest ->
-       (match parse_const rest with
-        | Some (c, rest') -> Some (Push c, rest')
-        | None -> None)
-   | None ->
-       match parse_string "Pop" s with
-       | Some rest -> Some (Pop, rest)
-       | None -> 
-           match parse_string "Trace" s with
-           | Some rest -> Some (Trace, rest)
-           | None ->
-               match parse_string "Add" s with
-               | Some rest -> Some (Add, rest)
-               | None ->
-                   match parse_string "Sub" s with
-                   | Some rest -> Some (Sub, rest)
-                   | None ->
-                       match parse_string "Mul" s with
-                       | Some rest -> Some (Mul, rest)
-                       | None ->
-                           match parse_string "Div" s with
-                           | Some rest -> Some (Div, rest)
-                           | None ->
-                               match parse_string "And" s with
-                               | Some rest -> Some (And, rest)
-                               | None ->
-                                   match parse_string "Or" s with
-                                   | Some rest -> Some (Or, rest)
-                                   | None ->
-                                       match parse_string "Not" s with
-                                       | Some rest -> Some (Not, rest)
-                                       | None ->
-                                           match parse_string "Lt" s with
-                                           | Some rest -> Some (Lt, rest)
-                                           | None ->
-                                               match parse_string "Gt" s with
-                                               | Some rest -> Some (Gt, rest)
-                                               | None -> None
+let rec dig_to_str(d : int) : string =
+  let new_digit = char_of_digit d in 
+  str(new_digit)
 
-       
-(* Parser for command sequences *)
-let rec parse_commands s =
-   if string_length s = 0 then Some ([], "")
-   else
-   match parse_command s with
-   | Some (cmd, rest) ->
-       (* Check for a semicolon to continue parsing further commands *)
-       (match parse_char ';' rest with
-      | Some rest' ->
-          (match parse_commands rest' with
-         | Some (cmds, rest'') -> Some (cmd :: cmds, rest'')
-         | None -> None)
-      | None -> Some ([cmd], rest)) (* No further commands *)
-   | None -> None
- 
-(* Parser for programs *)
-let parse_program s =
-   match parse_commands s with
-   | Some (cmds, "") -> Some cmds  (* Successfully parsed commands and no remaining string *)
-   | _ -> None  (* Partially parsed commands or a parsing failure *)
+let rec int_to_str(i : int) : string =
+  if (i = 0) then "0" else 
+  let rec helper (num : int) (acc : string) =
+  if num != 0 then
+    let digit_selector = num mod 10 in
+    let digit_string = dig_to_str digit_selector in
+    helper (num/10) (string_append digit_string acc)
+  else 
+    acc
+  in helper i ""
 
+let toString(x : constants) : string =
+  match x with
+  | Int x -> int_to_str(x)
+  | Bool x -> if (x = true) then "True" else "False"
+  | Unit x -> "Unit"
 
+let rec comm = function 
+  | curr :: next when curr = ';' -> true
+  | curr :: next when curr = ' ' || curr = '\n' || curr = '\r' || curr = '\t'  -> comm next
+  | _ -> false
 
-(* State of the interpreter *)
-(*type config = {
-    stack: const list;
-    trace: string list;
-    prog: command list;
-}*)
-
-type stack = const list
-type trace = string list
-type prog = command list
-type config = stack * trace * prog
-
-(* Helper function to convert const to string *)
-let string_of_const = function
-  | Int n -> string_of_int n
-  | Bool True -> "True"
-  | Bool False -> "False"
-  | Unit -> "Unit"
-
-(* Helper function to perform binary operations on integers *)
-let binary_op f op1 op2 =
-  match (op1, op2) with
-  | (Int n1, Int n2) -> Some (Int (f n1 n2))
+let rec str_to_prog(char_list : char list)(prog : commands list) : commands list option =
+  match char_list with
+  | ' ' :: rest | '\n' :: rest | '\r' :: rest | '\t' :: rest   | ';' :: rest -> str_to_prog rest prog
+  | 'P' :: 'u' :: 's' :: 'h' :: rest -> (
+    let rec helper rest = (
+      match rest with
+      | '-' :: x :: rest when x >= '1' && x <= '9' ->
+        let n = (p_int 0 (x :: rest)) * -1 in
+        str_to_prog rest (Push (Int n) :: prog)
+      | x :: rest when x >= '0' && x <= '9' ->
+        let n = p_int 0 (x :: rest) in
+        str_to_prog rest (Push (Int n) :: prog)
+      | 'T' :: 'r' :: 'u' :: 'e' :: rest -> str_to_prog rest (Push (Bool true) :: prog)
+      | 'F' :: 'a' :: 'l' :: 's' :: 'e' :: rest -> str_to_prog rest (Push (Bool false) :: prog)
+      | 'U' :: 'n' :: 'i' :: 't' :: rest -> str_to_prog rest (Push (Unit ()) :: prog)
+      | ' ' :: rest | '\n' :: rest | '\r' :: rest |  '\t' :: rest -> helper rest
+      | _ -> None
+    ) in helper rest)
+  | 'P' :: 'o' :: 'p' :: rest -> if comm (rest) then 
+      str_to_prog rest (Pop :: prog) 
+    else None
+  | 'T' :: 'r' :: 'a' :: 'c' :: 'e' :: rest -> if comm (rest) then  
+      str_to_prog rest (Trace :: prog) 
+    else None
+  | 'A' :: 'd' :: 'd' :: rest -> if comm (rest) then 
+      str_to_prog rest (Add :: prog) 
+    else None
+  | 'S' :: 'u' :: 'b' :: rest -> if comm (rest) then 
+      str_to_prog rest (Sub :: prog) 
+    else None
+  | 'M' :: 'u' :: 'l' :: rest -> if comm (rest) then 
+      str_to_prog rest (Mul :: prog) 
+    else None
+  | 'D' :: 'i' :: 'v' :: rest -> if comm (rest) then 
+      str_to_prog rest (Div :: prog) 
+    else None
+  | 'A' :: 'n' :: 'd' :: rest -> if comm (rest) then 
+      str_to_prog rest (And :: prog) 
+    else None
+  | 'O' :: 'r' :: rest -> if comm (rest) then 
+      str_to_prog rest (Or :: prog) 
+    else None
+  | 'N' :: 'o' :: 't' :: rest -> if comm (rest) then 
+      str_to_prog rest (Not :: prog) 
+    else None
+  | 'L' :: 't' :: rest -> if comm (rest) then 
+      str_to_prog rest (Lt :: prog) 
+    else None
+  | 'G' :: 't' :: rest -> if comm (rest) then 
+      str_to_prog rest (Gt :: prog) 
+    else None
+  | x :: rest when x >= '0' && x <= '9' -> str_to_prog rest prog
+  | [] -> Some prog
   | _ -> None
 
-let toString = function
-  | Int n -> string_of_int n
-  | Bool True -> "True"
-  | Bool False -> "False"
-  | Unit -> "Unit"
+let push(cons : constants)(stack : constants list) : constants list =
+  cons :: stack
 
+let pop(stack : constants list)(output : string list) : constants list * string list =
+  match stack with
+  | cons :: rest -> (rest, output)
+  | [] -> ([], "Panic" :: output)
 
-(* Function to execute a single command *)
-let exec_command : command -> config -> config option = 
-   fun cmd (stack, trace, prog) -> (
-      match cmd with
-      | Push c -> Some (c :: stack, trace, prog)
-      | Pop -> (
-         match stack with
-         | [] -> Some ([], "Panic" :: trace, [])
-         | _ :: rest -> Some (rest, trace, prog) 
-      )
-      | Trace -> (
-         match stack with
-         | [] -> Some ([], "Panic" :: trace, []) 
-         | c :: rest -> Some (Unit :: rest, toString (c) :: trace, prog)
-      )
-      | Add -> (
-         match stack with
-         | Int i :: Int j :: rest ->  Some (Int (i + j) :: rest, trace, prog)
-         | _ -> Some ([], "Panic" :: trace, [])
-      )
-      | Sub -> (
-         match stack with
-         | Int i :: Int j :: rest -> Some (Int (i - j) :: rest, trace, prog)
-         | _ -> Some ([], "Panic" :: trace, [])
-      )
-      | Mul -> (
-         match stack with 
-         | Int i :: Int j :: rest -> Some (Int (i * j) :: rest, trace, prog)
-         | _ -> Some ([], "Panic" :: trace, [])
-      )
-      | Div -> (
-         match stack with
-         | Int i :: Int j :: rest ->
-            if j = 0 then Some ([], "Panic" :: trace, [])
-            else Some (Int (i / j) :: rest, trace, prog)
-         | _ -> Some ([], "Panic" :: trace, [])
-      )
-      | And -> (
-    match stack with
-    | Bool a :: Bool b :: rest -> Some (Bool (match (a, b) with
-                                                | (True, True) -> True
-                                                | _ -> False) :: rest, trace, prog)
-    | _ :: _ :: _ -> Some ([], "Panic" :: trace, [])
-    | _ -> Some ([], "Panic" :: trace, [])
-)
-| Or -> (
-   match stack with
-   | Bool a :: Bool b :: rest -> Some (Bool (match (a, b) with
-                                               | (False, False) -> False
-                                               | _ -> True) :: rest, trace, prog)
-   | _ :: _ :: _ -> Some ([], "Panic" :: trace, [])
-   | _ -> Some ([], "Panic" :: trace, [])
-)
-| Not -> (
-   match stack with
-   | Bool a :: rest -> Some (Bool (match a with
-                                     | True -> False
-                                     | False -> True) :: rest, trace, prog)
-   | _ -> Some ([], "Panic" :: trace, [])
-)
-| Lt -> (
-    match stack with
-    | Int i :: Int j :: rest -> Some (Bool (if i < j then True else False) :: rest, trace, prog)
-    | _ -> Some ([], "Panic" :: trace, [])
-)
-| Gt -> (
-    match stack with
-    | Int i :: Int j :: rest -> Some (Bool (if i > j then True else False) :: rest, trace, prog)
-    | _ -> Some ([], "Panic" :: trace, [])
-)
-   )
-;;
+let trace(stack : constants list)(output : string list): constants list * string list = 
+  match stack with
+  | x :: xs -> 
+    let string_element = toString(x) in
+    let stack = exam_stack(pop(stack)(output)) in
+    let stack = push(Unit ())(stack) in
+    let output = string_element :: output in
+    (stack, output)
+  | [] -> ([], "Panic" :: output)
 
-(* Function to execute a sequence of commands *)
-let rec exec_commands (stack, trace, prog) =
-   match prog with
-   | [] -> (stack, trace, prog)
-   | cmd :: rest ->
-       (match exec_command cmd (stack, trace, rest) with
-       | Some new_config -> exec_commands new_config
-       | None -> (stack, trace, rest))  (* Handle the case where exec_command returns None *)
-;;
+let num_ops(stack : constants list)(operation: commands list)(output : string list) : constants list * string list =   
+  match stack with
+  | Int i :: Int j :: rest ->
+    let result = 
+      match operation with
+      | Add :: _ -> Int (i + j)
+      | Sub :: _ -> Int (i - j)
+      | Mul :: _ -> Int (i * j)
+      | Div :: rest when j != 0 -> Int (j / i)
+      | Div :: rest when j = 0 -> Int (-11111111)
+      | Lt :: _ -> Bool (i < j)
+      | Gt :: _ -> Bool (i > j)
+      | _ -> failwith "Invalid operation"
+    in
+    if result = Int (-11111111) then 
+      ([], "Panic" :: output) 
+    else
+      let stack = exam_stack(pop (stack)(output)) in
+      let stack = exam_stack(pop (stack)(output)) in
+      let stack = push(result)(stack) in
+      (stack, output)
 
-(* Custom function to reverse a list *)
-let reverse_list lst =
-   let rec reverse_aux acc = function
-     | [] -> acc
-     | head :: tail -> reverse_aux (head :: acc) tail
-   in
-   reverse_aux [] lst
- 
+  | _ :: (Int j) :: rest -> ([], "Panic" :: output)
+  | (Int i) :: _ :: rest -> ([], "Panic" :: output)
+  | (Int i) :: rest -> ([], "Panic" :: output)
+  | [] -> ([], "Panic" :: output)
+  | _ -> ([], "Panic" :: output)
 
-(* Interpreter function *)
-let interp (s : string) : string list option =
-   match parse_program s with
-   | Some cmds ->
-       let initial_config = ([], [], cmds) in
-       let (_, final_trace, _) = exec_commands initial_config in
-       Some (reverse_list final_trace)
-   | None -> None
+let bool_ops (stack : constants list)(operation: commands list)(output : string list) : constants list * string list = 
+  match stack with
+  | Bool i :: Bool j :: rest ->
+    let com =
+      match operation with
+      | And :: _ -> Bool (i && j)
+      | Or :: _ -> Bool (i || j)
+      | _ -> failwith "Invalid boolean operation"
+    in
+    let stack = exam_stack(pop (stack)(output)) in
+    let stack = exam_stack(pop (stack)(output)) in
+    let stack = push(com)(stack) in
+    (stack, output)
+
+  | _ :: (Bool j) :: rest -> ([], "Panic" :: output)
+  | (Bool i) :: _ :: rest -> ([], "Panic" :: output)
+  | (Bool i) :: rest -> ([], "Panic" :: output)
+  | [] -> ([], "Panic" :: output)
+  | _ -> ([], "Panic" :: output)
+
+let not_op(stack : constants list)(output : string list) : constants list * string list =
+  match stack with
+  | Bool x :: rest ->
+    let comb = Bool (not x) in
+    let stack = exam_stack(pop(stack)(output)) in
+    let stack = push(comb)(stack) in
+    (stack, output)
+  | [] -> ([], "Panic" :: output)
+  | _ -> ([], "Panic" :: output)
+
+let pani pan = pan = "Panic"
+
+let interp (str : string) : string list option =
+  let empty : commands list = [] in
+  let stack : constants list = [] in
+  let output : string list = [] in
+  let options = str_to_prog (string_listize(str)) (empty) in
+
+  match options with
+  | Some reversal_program -> 
+    let program = list_reverse reversal_program in
+    let rec helper (current_prog : commands list) (stack_output : constants list * string list) : string list option =
+      if (exam_stack(stack_output) = [] && list_exists (exam(stack_output)) pani) then
+        Some (exam(stack_output))
+      else
+        match current_prog with
+        | command :: rest ->
+        (begin
+          match command with
+          |Push constant -> helper(rest)(push (constant) (exam_stack(stack_output)),exam(stack_output))
+          |Pop -> helper(rest)(pop (exam_stack(stack_output)) (exam(stack_output)))
+          |Trace -> helper(rest)(trace (exam_stack(stack_output)) (exam(stack_output)))
+          |Add | Sub | Mul | Div | Lt | Gt -> helper(rest)(num_ops (exam_stack(stack_output)) (current_prog) (exam(stack_output)))
+          |And | Or -> helper(rest)(bool_ops (exam_stack(stack_output)) (current_prog) (exam(stack_output)))
+          |Not -> helper(rest)(not_op (exam_stack(stack_output)) (exam(stack_output)))
+        end)
+        | [] -> Some (exam(stack_output)) in helper program (stack, output)
+  | None -> None
