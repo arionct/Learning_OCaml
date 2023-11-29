@@ -20,19 +20,10 @@ type constants =
   | Unit of unit
 
 type commands = 
-  | Push of constants 
-  | Pop 
-  | Trace
-  | Add 
-  | Sub 
-  | Mul 
-  | Div
-  | And 
-  | Or 
-  | Not
-  | Lt 
-  | Gt
-
+  | Push of constants | Pop | Trace
+  | Add | Sub | Mul | Div
+  | And | Or | Not
+  | Lt | Gt
 
 let rec p_int acc = function
    | c :: cs when c >= '0' && c <= '9' -> p_int (10 * acc + (int_of_char c - int_of_char '0')) cs
