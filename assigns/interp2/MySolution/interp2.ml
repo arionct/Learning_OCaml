@@ -306,12 +306,3 @@ let interp_file (fname : string) : string list option =
   interp src
 
 
-(* ------------------------------------------------------------ *)
-let test () =
-   let test_program = 
-   "Push -2; Trace;" (* Placeholder for test input string *)
-   in match interp test_program with
-      | Some trace -> List.iter print_endline trace
-      | None -> print_endline "Program failed to interpret"
- 
- let _ = test()
