@@ -142,12 +142,22 @@ let str_of_int (n : int) : string =
     string_append "-" (str_of_nat (-n))
   else str_of_nat n
 
+
+let str_of_char (c : char) : string =
+   str(c)
+
+let str_of_closure (name : string) (env : env) (cmds : coms) : string =
+   "Closure(" ^ name ^ ")"
+
 let toString (c : const) : string =
   match c with
   | Int i -> str_of_int i
   | Bool true -> "True"
   | Bool false -> "False"
   | Unit -> "Unit"
+  | Char ch -> str_of_char ch
+  | Sym s -> s
+  | Closure (name, env, cmds) -> str_of_closure name env cmds
 
 let rec eval (s : stack) (t : trace) (v: env) (p : prog) : trace =
   match p with
@@ -158,6 +168,11 @@ let rec eval (s : stack) (t : trace) (v: env) (p : prog) : trace =
     (match s with
      | _ :: s0 (* PopStack *) -> eval s0 t v p0
      | []      (* PopError *) -> eval [] ("Panic" :: t) [] [])
+  | Swap :: p0 ->
+    (match s with
+     | a :: b :: s0 (* SwapStack *) -> eval (b :: a :: s0) t v p0
+     | _ :: []      (* SwapError2 *) -> eval [] ("Panic" :: t) [] []
+     | []           (* SwapError1 *) -> eval [] ("Panic" :: t) [] [])
   | Trace :: p0 ->
     (match s with
      | c :: s0 (* TraceStack *) -> eval (Unit :: s0) (toString c :: t) v p0
@@ -216,7 +231,49 @@ let rec eval (s : stack) (t : trace) (v: env) (p : prog) : trace =
      | _ :: _ :: s0         (* GtError1 *) -> eval [] ("Panic" :: t) [] []
      | []                   (* GtError2 *) -> eval [] ("Panic" :: t) [] []
      | _ :: []              (* GtError3 *) -> eval [] ("Panic" :: t) [] [])
-
+  | If (if_branch, else_branch) :: p0 ->
+    (match s with
+     | Bool true :: s0  -> eval s0 t v (if_branch @ p0)
+     | Bool false :: s0 -> eval s0 t v (else_branch @ p0)
+     | _ :: s0          -> eval [] ("Panic" :: t) [] []
+     | []               -> eval [] ("Panic" :: t) [] [])
+  | Bind :: p0 ->
+    (match s with
+     | Sym sym_name :: const_value :: s0 -> 
+         let new_env = (sym_name, const_value) :: v in
+         eval s0 t new_env p0
+     | _ :: _ :: s0 (* BindError1 *) -> eval [] ("Panic" :: t) [] []
+     | []           (* BindError2 *) -> eval [] ("Panic" :: t) [] []
+     | _ :: []      (* BindError3 *) -> eval [] ("Panic" :: t) [] [])
+  | Lookup :: p0 ->
+    (match s with
+     | Sym x :: s0 -> 
+         (match List.assoc_opt x v with
+         | Some value -> eval (value :: s0) t v p0
+         | None       -> eval [] ("Panic" :: t) [] []) (* LookupError3 *)
+     | [] -> eval [] ("Panic" :: t) [] [] (* LookupError2 *)
+     | _  -> eval [] ("Panic" :: t) [] []) (* LookupError1 *)
+  | Fun (name, body) :: p0 ->
+    (match s with
+     | Sym x :: s0 -> eval ((Closure (x, v, body)) :: s0) t v p0
+     | []          -> eval [] ("Panic" :: t) [] [] (* FunError2 *)
+     | _           -> eval [] ("Panic" :: t) [] []) (* FunError1 *)
+  | Call :: p0 ->
+    (match s with
+     | Closure (f, closureEnv, closureComs) :: a :: restOfStack -> 
+         let newEnv = (f, Closure (f, closureEnv, closureComs)) :: closureEnv in
+         let continuation = Closure ("cc", v, p0) in
+         eval (a :: continuation :: restOfStack) t newEnv closureComs
+     | []          -> eval [] ("Panic" :: t) [] [] (* CallError2 *)
+     | [_]         -> eval [] ("Panic" :: t) [] [] (* CallError3 *)
+     | _           -> eval [] ("Panic" :: t) [] []) (* CallError1 *)
+  | Return :: p0 ->
+    (match s with
+     | Closure (f, closureEnv, closureComs) :: a :: restOfStack ->
+         eval (a :: restOfStack) t closureEnv closureComs
+     | []                   -> eval [] ("Panic" :: t) [] [] (* ReturnError2 *)
+     | [_]                  -> eval [] ("Panic" :: t) [] [] (* ReturnError3 *)
+     | _                    -> eval [] ("Panic" :: t) [] []) (* ReturnError1 *)
    
     
 
