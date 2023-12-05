@@ -17,14 +17,19 @@ type const =
   | Int of int
   | Bool of bool
   | Unit
+  | Char of char
+  | Sym of string
 
 type com =
-  | Push of const | Pop | Trace
+  | Push of const | Pop | Swap | Trace
   | Add | Sub | Mul | Div
   | And | Or | Not
   | Lt | Gt
+  | If of coms * coms
+  | Bind | Lookup
+  | Fun of coms | Call | Return
 
-type coms = com list
+and coms = com list
 
 (* ------------------------------------------------------------ *)
 
@@ -43,14 +48,32 @@ let parse_bool =
 let parse_unit =
   keyword "Unit" >> pure Unit
 
+let parse_char =
+   let is_lowercase_letter c = c >= 'a' && c <= 'z' in
+   let* c = satisfy is_lowercase_letter << whitespaces in
+   pure (Char c)
+
+let is_sym_char c = 
+   (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')
+   
+let parse_sym =
+   let* sym_chars = many1 (satisfy is_sym_char) << whitespaces in
+   pure (Sym (String.of_char_list sym_chars))
+    
+ 
 let parse_const =
   parse_int <|>
   parse_bool <|>
-  parse_unit
+  parse_unit <|>
+  parse_char <|>
+  parse_sym
 
-let parse_com = 
+
+
+let rec parse_com = 
   (keyword "Push" >> parse_const >>= fun c -> pure (Push c)) <|>
   (keyword "Pop" >> pure Pop) <|>
+  (keyword "Swap" >> pure Swap) <|>
   (keyword "Trace" >> pure Trace) <|>
   (keyword "Add" >> pure Add) <|>
   (keyword "Sub" >> pure Sub) <|>
@@ -60,9 +83,30 @@ let parse_com =
   (keyword "Or" >> pure Or) <|>
   (keyword "Not" >> pure Not) <|>
   (keyword "Lt" >> pure Lt) <|>
-  (keyword "Gt" >> pure Gt)
+  (keyword "Gt" >> pure Gt) <|>
+  (parse_if_else) <|>
+  (keyword "Bind" >> pure Bind) <|>
+  (keyword "Lookup" >> pure Lookup) <|>
+  (parse_fun) <|>
+  (keyword "Call" >> pure Call) <|>
+  (keyword "Return" >> pure Return)
 
-let parse_coms = many (parse_com << keyword ";")
+and parse_if_else =
+   let* _ = keyword "If" in
+   let* if_branch = parse_coms () in
+   let* _ = keyword "Else" in
+   let* else_branch = parse_coms () in
+   let* _ = keyword "End" in
+   pure (If (if_branch, else_branch))
+
+and parse_fun =
+   let* _ = keyword "Fun" in
+   let* fun_body = parse_coms () in
+   let* _ = keyword "End" in
+   pure (Fun fun_body)
+
+and parse_coms () =
+   many (parse_com << keyword ";")
 
 (* ------------------------------------------------------------ *)
 
