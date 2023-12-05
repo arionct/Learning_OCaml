@@ -56,9 +56,13 @@ let parse_char =
 let is_sym_char c = 
    (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')
    
+
+let string_of_char_list char_list =
+   String.concat "" (List.map (String.make 1) char_list)
+    
 let parse_sym =
    let* sym_chars = many1 (satisfy is_sym_char) << whitespaces in
-   pure (Sym (String.of_char_list sym_chars))
+   pure (Sym (string_of_char_list sym_chars))
     
  
 let parse_const =
@@ -70,43 +74,44 @@ let parse_const =
 
 
 
-let rec parse_com = 
-  (keyword "Push" >> parse_const >>= fun c -> pure (Push c)) <|>
-  (keyword "Pop" >> pure Pop) <|>
-  (keyword "Swap" >> pure Swap) <|>
-  (keyword "Trace" >> pure Trace) <|>
-  (keyword "Add" >> pure Add) <|>
-  (keyword "Sub" >> pure Sub) <|>
-  (keyword "Mul" >> pure Mul) <|>
-  (keyword "Div" >> pure Div) <|>
-  (keyword "And" >> pure And) <|>
-  (keyword "Or" >> pure Or) <|>
-  (keyword "Not" >> pure Not) <|>
-  (keyword "Lt" >> pure Lt) <|>
-  (keyword "Gt" >> pure Gt) <|>
-  (parse_if_else) <|>
-  (keyword "Bind" >> pure Bind) <|>
-  (keyword "Lookup" >> pure Lookup) <|>
-  (parse_fun) <|>
-  (keyword "Call" >> pure Call) <|>
-  (keyword "Return" >> pure Return)
-
-and parse_if_else =
+  let parse_if_else parse_coms =
    let* _ = keyword "If" in
    let* if_branch = parse_coms () in
    let* _ = keyword "Else" in
    let* else_branch = parse_coms () in
    let* _ = keyword "End" in
    pure (If (if_branch, else_branch))
-
-and parse_fun =
+ 
+ let parse_fun parse_coms =
    let* _ = keyword "Fun" in
    let* fun_body = parse_coms () in
    let* _ = keyword "End" in
    pure (Fun fun_body)
-
-and parse_coms () =
-   many (parse_com << keyword ";")
+ 
+ let parse_com parse_coms = 
+   (keyword "Push" >> parse_const >>= fun c -> pure (Push c)) <|>
+   (keyword "Pop" >> pure Pop) <|>
+   (keyword "Swap" >> pure Swap) <|>
+   (keyword "Trace" >> pure Trace) <|>
+   (keyword "Add" >> pure Add) <|>
+   (keyword "Sub" >> pure Sub) <|>
+   (keyword "Mul" >> pure Mul) <|>
+   (keyword "Div" >> pure Div) <|>
+   (keyword "And" >> pure And) <|>
+   (keyword "Or" >> pure Or) <|>
+   (keyword "Not" >> pure Not) <|>
+   (keyword "Lt" >> pure Lt) <|>
+   (keyword "Gt" >> pure Gt) <|>
+   (parse_if_else parse_coms) <|>
+   (keyword "Bind" >> pure Bind) <|>
+   (keyword "Lookup" >> pure Lookup) <|>
+   (parse_fun parse_coms) <|>
+   (keyword "Call" >> pure Call) <|>
+   (keyword "Return" >> pure Return)
+ 
+ let rec parse_coms () =
+   many (parse_com parse_coms << keyword ";")
+ 
 
 (* ------------------------------------------------------------ *)
 
@@ -209,7 +214,7 @@ let rec eval (s : stack) (t : trace) (p : prog) : trace =
 (* putting it all together [input -> parser -> eval -> output] *)
 
 let interp (s : string) : string list option =
-  match string_parse (whitespaces >> parse_coms) s with
+  match string_parse (whitespaces >> parse_coms ()) s with
   | Some (p, []) -> Some (eval [] [] p)
   | _ -> None
 
@@ -231,3 +236,6 @@ let read_file (fname : string) : string =
 let interp_file (fname : string) : string list option =
   let src = read_file fname in
   interp src
+
+
+(* ------------------------------------------------------------ *)
