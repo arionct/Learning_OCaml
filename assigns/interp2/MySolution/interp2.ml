@@ -12,66 +12,67 @@ Notes:
 
 *)
 
+(* ------------------------------------------------------------ *)
+
 (* abstract syntax tree of interp2 *)
 
 type const =
-  | Int of int
-  | Bool of bool
-  | Unit
-  | Sym of string
-  | Closure of string * env * coms
-
-and env = (string * const) list
+   | Int of int
+   | Bool of bool
+   | Unit
+   | Sym of string
+   | Closure of string * (string * const) list * com list
 
 and com =
-  | Push of const | Pop | Swap | Trace
-  | Add | Sub | Mul | Div
-  | And | Or | Not
-  | Lt | Gt
-  | If of coms * coms
-  | Bind | Lookup
-  | Fun of string * coms | Call | Return
-
-and coms = com list
+   | Push of const
+   | Pop 
+   | Swap 
+   | Trace
+   | Add 
+   | Sub 
+   | Mul 
+   | Div
+   | And 
+   | Or 
+   | Not
+   | Lt 
+   | Gt
+   | If of com list * com list
+   | Bind 
+   | Lookup
+   | Fun of com list 
+   | Call 
+   | Return 
 
 (* ------------------------------------------------------------ *)
 
 (* parsers for interp2 *)
 
-let parse_nat = 
-  let* n = natural << whitespaces in pure n
+let parse_natural = 
+   let* n = natural << whitespaces in pure n
 
 let parse_int =
-  (let* n = parse_nat in pure (Int n)) <|>
-  (keyword "-" >> let* n = parse_nat in pure (Int (-n)))
+   (let* n = parse_natural in pure (Int n)) <|>
+   (keyword "-" >> let* n = parse_natural in pure (Int (-n)))
 
 let parse_bool =
-  (keyword "True" >> pure (Bool true)) <|>
-  (keyword "False" >> pure (Bool false))
+   (keyword "True" >> pure (Bool true)) <|>
+   (keyword "False" >> pure (Bool false))
 
 let parse_unit =
-  keyword "Unit" >> pure Unit
-
-
-let is_sym_char c = 
-   (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')
+   keyword "Unit" >> pure Unit
    
-let string_of_char_list char_list =
-   let rec aux acc = function
-      | [] -> acc
-      | c :: cs -> aux (string_snoc acc c) cs
-   in aux "" char_list;;
-   
+let letter_or_number c =
+   (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')
+
 let check c =
    match c with
    | '\n' -> "\\n"
    | '\t' -> "\\t"
    | '\r' -> "\\r"
-   | '\\' -> "\\\\" | '\'' -> "\\'"
+   | '\\' -> "\\\\"
+   | '\'' -> "\\'"
    | _    -> str c
-
-let letter_or_number c =
-   (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')
 
 let ch =
    let* chars = many (satisfy letter_or_number) in
@@ -84,36 +85,16 @@ let parse_str : string parser =
          Some (list_foldleft charList "" (fun acc c -> acc ^ check c), rest)
       | None -> None
 
-let parse_sym = 
+let parse_symbol = 
    let* n = parse_str << whitespaces in pure (Sym n)
     
 let parse_const =
-  parse_int <|>
-  parse_bool <|>
-  parse_unit <|>
-  parse_sym
-
-let parse_if_else parse_coms =
-   let* _ = keyword "If" in
-   let* if_branch = parse_coms () in
-   let* _ = keyword "Else" in
-   let* else_branch = parse_coms () in
-   let* _ = keyword "End" in
-   pure (If (if_branch, else_branch))
+   parse_int <|>
+   parse_bool <|>
+   parse_unit <|>
+   parse_symbol
  
-let parse_sym_as_string =
-   let* sym_chars = many1 (satisfy is_sym_char) << whitespaces in
-   pure (string_of_char_list sym_chars)
-   
-let parse_fun parse_coms =
-   let* _ = keyword "Fun" in
-   let* sym = parse_sym_as_string in
-   let* fun_body = parse_coms () in
-   let* _ = keyword "End" in
-   pure (Fun (sym, fun_body))
-       
- 
-let parse_com parse_coms = 
+let rec parse_com () = 
    (keyword "Push" >> parse_const >>= fun c -> pure (Push c)) <|>
    (keyword "Pop" >> pure Pop) <|>
    (keyword "Swap" >> pure Swap) <|>
@@ -127,185 +108,286 @@ let parse_com parse_coms =
    (keyword "Not" >> pure Not) <|>
    (keyword "Lt" >> pure Lt) <|>
    (keyword "Gt" >> pure Gt) <|>
-   (parse_if_else parse_coms) <|>
+   (parse_if_else ()) <|>
    (keyword "Bind" >> pure Bind) <|>
    (keyword "Lookup" >> pure Lookup) <|>
-   (parse_fun parse_coms) <|>
+   (parse_function ()) <|>
    (keyword "Call" >> pure Call) <|>
    (keyword "Return" >> pure Return)
  
-let rec parse_coms () =
-   many (parse_com parse_coms << keyword ";")
+ and parse_if_else () =
+   let* _ = keyword "If" in
+   let* c1 = parse_coms () in
+   let* _ = keyword "Else" in
+   let* c2 = parse_coms () in
+   let* _ = keyword "End" in
+   pure (If (c1, c2))
+ and parse_function () = 
+   let* _ = keyword "Fun" in
+   let* c = parse_coms () in
+   let* _ = keyword "End" in
+   pure (Fun (c))
+and parse_coms () = many' (fun x -> parse_com x << keyword ";")
  
-
 (* ------------------------------------------------------------ *)
 
 (* interpreter *)
 
+type coms = com list
 type stack = const list
 type trace = string list
 type env = (string * const) list
 type prog = coms
 
-let rec str_of_nat (n : int) : string =
-  let d = n mod 10 in 
-  let n0 = n / 10 in
-  let s = str (chr (d + ord '0')) in 
-  if 0 < n0 then
-    string_append (str_of_nat n0) s
-  else s
+let rec str_of_natural n =
+   let d = n mod 10 in 
+   let n0 = n / 10 in
+   let s = str (chr (d + ord '0')) in 
+   if 0 < n0 then
+      string_append (str_of_natural n0) s
+   else s
 
-let str_of_int (n : int) : string = 
-  if n < 0 then
-    string_append "-" (str_of_nat (-n))
-  else str_of_nat n
+let str_of_int n = 
+   if n < 0 then
+      string_append "-" (str_of_natural (-n))
+   else str_of_natural n
 
+let str_of_function c = 
+   "Fun<" ^ c ^ ">"
 
-let str_of_char (c : char) : string =
-   str(c)
+let toString c =
+   match c with
+   | Int i -> str_of_int i
+   | Bool true -> "True"
+   | Bool false -> "False"
+   | Unit -> "Unit"
+   | Sym s -> s
+   | Closure (x, _, _) -> str_of_function x
 
-let toString (c : const) : string =
-  match c with
-  | Int i -> str_of_int i
-  | Bool true -> "True"
-  | Bool false -> "False"
-  | Unit -> "Unit"
-  | Sym s -> s
-  | Closure (x, _, _) -> "Fun<" ^ x ^ ">"
-
-let rec custom_lookup key env =
+let rec custom_lookup (key: 'a) (env: ('a * 'b) list): 'b option =
    match env with
    | [] -> None
    | (k, v) :: tail -> 
       if k = key then Some v 
       else custom_lookup key tail
  
-let rec eval (s : stack) (t : trace) (v: env) (p : prog) : trace =
-  match p with
-  (* termination state returns the trace *)
-  | [] -> t
-  | Push c :: p0 (* PushStack *) -> eval (c :: s) t v p0
-  | Pop :: p0 ->
-    (match s with
-     | _ :: s0 (* PopStack *) -> eval s0 t v p0
-     | []      (* PopError *) -> eval [] ("Panic" :: t) v [])
-  | Swap :: p0 ->
-    (match s with
-     | a :: b :: s0 (* SwapStack *) -> eval (b :: a :: s0) t v p0
-     | _ :: []      (* SwapError2 *) -> eval [] ("Panic" :: t) v []
-     | []           (* SwapError1 *) -> eval [] ("Panic" :: t) v [])
-  | Trace :: p0 ->
-    (match s with
-     | c :: s0 (* TraceStack *) -> eval (Unit :: s0) (toString c :: t) v p0
-     | []      (* TraceError *) -> eval [] ("Panic" :: t) v [])
-  | Add :: p0 ->
-    (match s with
-     | Int i :: Int j :: s0 (* AddStack *)  -> eval (Int (i + j) :: s0) t v p0
-     | _ :: _ :: s0         (* AddError1 *) -> eval [] ("Panic" :: t) v []
-     | []                   (* AddError2 *) -> eval [] ("Panic" :: t) v []
-     | _ :: []              (* AddError3 *) -> eval [] ("Panic" :: t) v [])
-  | Sub :: p0 ->
-    (match s with
-     | Int i :: Int j :: s0 (* SubStack *)  -> eval (Int (i - j) :: s0) t v p0
-     | _ :: _ :: s0         (* SubError1 *) -> eval [] ("Panic" :: t) v []
-     | []                   (* SubError2 *) -> eval [] ("Panic" :: t) v []
-     | _ :: []              (* SubError3 *) -> eval [] ("Panic" :: t) v [])
-  | Mul :: p0 ->
-    (match s with
-     | Int i :: Int j :: s0 (* MulStack *)  -> eval (Int (i * j) :: s0) t v p0
-     | _ :: _ :: s0         (* MulError1 *) -> eval [] ("Panic" :: t) v []
-     | []                   (* MulError2 *) -> eval [] ("Panic" :: t) v []
-     | _ :: []              (* MulError3 *) -> eval [] ("Panic" :: t) v [])
-  | Div :: p0 ->
-    (match s with
-     | Int i :: Int 0 :: s0 (* DivError0 *) -> eval [] ("Panic" :: t) v []
-     | Int i :: Int j :: s0 (* DivStack *)  -> eval (Int (i / j) :: s0) t v p0
-     | _ :: _ :: s0         (* DivError1 *) -> eval [] ("Panic" :: t) v []
-     | []                   (* DivError2 *) -> eval [] ("Panic" :: t) v []
-     | _ :: []              (* DivError3 *) -> eval [] ("Panic" :: t) v [])
-  | And :: p0 ->
-    (match s with
-     | Bool a :: Bool b :: s0 (* AndStack *)  -> eval (Bool (a && b) :: s0) t v p0
-     | _ :: _ :: s0           (* AndError1 *) -> eval [] ("Panic" :: t) v []
-     | []                     (* AndError2 *) -> eval [] ("Panic" :: t) v []
-     | _ :: []                (* AndError3 *) -> eval [] ("Panic" :: t) v [])
-  | Or :: p0 ->
-    (match s with
-     | Bool a :: Bool b :: s0 (* OrStack *)  -> eval (Bool (a || b) :: s0) t v p0
-     | _ :: _ :: s0           (* OrError1 *) -> eval [] ("Panic" :: t) v []
-     | []                     (* OrError2 *) -> eval [] ("Panic" :: t) v []
-     | _ :: []                (* OrError3 *) -> eval [] ("Panic" :: t) v [])
-  | Not :: p0 ->
-    (match s with
-     | Bool a :: s0 (* NotStack  *) -> eval (Bool (not a) :: s0) t v p0
-     | _ :: s0      (* NotError1 *) -> eval [] ("Panic" :: t) v []
-     | []           (* NotError2 *) -> eval [] ("Panic" :: t) v [])
-  | Lt :: p0 ->
-    (match s with
-     | Int i :: Int j :: s0 (* LtStack *)  -> eval (Bool (i < j) :: s0) t v p0
-     | _ :: _ :: s0         (* LtError1 *) -> eval [] ("Panic" :: t) v []
-     | []                   (* LtError2 *) -> eval [] ("Panic" :: t) v []
-     | _ :: []              (* LtError3 *) -> eval [] ("Panic" :: t) v [])
-  | Gt :: p0 ->
-    (match s with
-     | Int i :: Int j :: s0 (* GtStack *)  -> eval (Bool (i > j) :: s0) t v p0
-     | _ :: _ :: s0         (* GtError1 *) -> eval [] ("Panic" :: t) v []
-     | []                   (* GtError2 *) -> eval [] ("Panic" :: t) v []
-     | _ :: []              (* GtError3 *) -> eval [] ("Panic" :: t) v [])
-  | If (if_branch, else_branch) :: p0 ->
-    (match s with
-     | Bool true :: s0  -> eval s0 t v (if_branch @ p0)
-     | Bool false :: s0 -> eval s0 t v (else_branch @ p0)
-     | _ :: s0          -> eval [] ("Panic" :: t) v []
-     | []               -> eval [] ("Panic" :: t) v [])
-  | Bind :: p0 ->
-    (match s with
-     | Sym sym_name :: const_value :: s0 -> 
-         let new_env = (sym_name, const_value) :: v in
-         eval s0 t new_env p0
-     | _ :: _ :: s0 (* BindError1 *) -> eval [] ("Panic" :: t) v []
-     | []           (* BindError2 *) -> eval [] ("Panic" :: t) v []
-     | _ :: []      (* BindError3 *) -> eval [] ("Panic" :: t) v [])
-  | Lookup :: p0 ->
-    (match s with
-     | Sym x :: s0 -> 
-         (match custom_lookup x v with
-         | Some value -> eval (value :: s0) t v p0
-         | None       -> eval [] ("Panic" :: t) v []) (* LookupError3 *)
-     | [] -> eval [] ("Panic" :: t) v [] (* LookupError2 *)
-     | _  -> eval [] ("Panic" :: t) v []) (* LookupError1 *)
-  | Fun (name, body) :: p0 ->
-    (match s with
-     | Sym x :: s0 -> eval ((Closure (x, v, body)) :: s0) t v p0
-     | []          -> eval [] ("Panic" :: t) v [] (* FunError2 *)
-     | _           -> eval [] ("Panic" :: t) v []) (* FunError1 *)
-  | Call :: p0 ->
-    (match s with
-     | Closure (f, closureEnv, closureComs) :: a :: restOfStack -> 
-         let newEnv = (f, Closure (f, closureEnv, closureComs)) :: closureEnv in
-         let continuation = Closure ("cc", v, p0) in
-         eval (a :: continuation :: restOfStack) t newEnv closureComs
-     | []          -> eval [] ("Panic" :: t) v [] (* CallError2 *)
-     | [_]         -> eval [] ("Panic" :: t) v [] (* CallError3 *)
-     | _           -> eval [] ("Panic" :: t) v []) (* CallError1 *)
-  | Return :: p0 ->
-    (match s with
-     | Closure (f, closureEnv, closureComs) :: a :: restOfStack ->
-         eval (a :: restOfStack) t closureEnv closureComs
-     | []                   -> eval [] ("Panic" :: t) v [] (* ReturnError2 *)
-     | [_]                  -> eval [] ("Panic" :: t) v [] (* ReturnError3 *)
-     | _                    -> eval [] ("Panic" :: t) v []) (* ReturnError1 *)
-   
-    
+let rec eval (stack : stack) (trace : trace) (env: env) (prog : prog) : trace =
+   match prog with
+   | [] -> trace  (* Termination state *)
+   | Push c :: p0 -> eval (c :: stack) trace env p0     (* PushStack *)
+   | Pop :: p0 -> (
+      match stack with
+      | _ :: s0   -> eval s0 trace env p0               (* PopStack *)
+      | []        -> eval [] ("Panic" :: trace) env []  (* PopError *)
+   )
+   | Swap :: p0 -> (
+      match stack with 
+      | c1 :: c2 :: s0 -> eval (c2 :: c1 :: s0) trace env p0  (* SwapStack *)
+      | []             -> eval [] ("Panic" :: trace) env []   (* SwapError1 *)
+      | _ :: []        -> eval [] ("Panic" :: trace) env []   (* SwapError2 *)
+   )
+   | Trace :: p0 -> (
+      match stack with
+      | c :: s0 -> eval (Unit :: s0) (toString c :: trace) env p0    (* TraceStack *)
+      | []      -> eval [] ("Panic" :: trace) env []                 (* TraceError *)
+   )
+   | Add :: p0 -> (
+      match stack with
+      | Int i :: Int j :: s0 -> eval (Int (i + j) :: s0) trace env p0   (* AddStack *)
+      | _ :: _ :: s0         -> eval [] ("Panic" :: trace) env []       (* AddError1 *)
+      | []                   -> eval [] ("Panic" :: trace) env []       (* AddError2 *)
+      | _ :: []              -> eval [] ("Panic" :: trace) env []       (* AddError3 *)
+   )
+   | Sub :: p0 -> (
+      match stack with
+      | Int i :: Int j :: s0 -> eval (Int (i - j) :: s0) trace env p0   (* SubStack *)
+      | _ :: _ :: s0         -> eval [] ("Panic" :: trace) env []       (* SubError1 *)
+      | []                   -> eval [] ("Panic" :: trace) env []       (* SubError2 *)
+      | _ :: []              -> eval [] ("Panic" :: trace) env []       (* SubError3 *)
+   )
+   | Mul :: p0 -> (
+      match stack with
+      | Int i :: Int j :: s0 -> eval (Int (i * j) :: s0) trace env p0   (* MulStack *)
+      | _ :: _ :: s0         -> eval [] ("Panic" :: trace) env []       (* MulError1 *)
+      | []                   -> eval [] ("Panic" :: trace) env []       (* MulError2 *)
+      | _ :: []              -> eval [] ("Panic" :: trace) env []       (* MulError3 *)
+   )
+   | Div :: p0 -> (
+      match stack with
+      | Int i :: Int 0 :: s0 -> eval [] ("Panic" :: trace) env []       (* DivError0 *)
+      | Int i :: Int j :: s0 -> eval (Int (i / j) :: s0) trace env p0   (* DivStack *)
+      | _ :: _ :: s0         -> eval [] ("Panic" :: trace) env []       (* DivError1 *)
+      | []                   -> eval [] ("Panic" :: trace) env []       (* DivError2 *)
+      | _ :: []              -> eval [] ("Panic" :: trace) env []       (* DivError3 *)
+   )
+   | And :: p0 -> (
+      match stack with
+      | Bool a :: Bool b :: s0 -> eval (Bool (a && b) :: s0) trace env p0  (* AndStack *)
+      | _ :: _ :: s0           -> eval [] ("Panic" :: trace) env []        (* AndError1 *)
+      | []                     -> eval [] ("Panic" :: trace) env []        (* AndError2 *)
+      | _ :: []                -> eval [] ("Panic" :: trace) env []        (* AndError3 *)
+   )
+   | Or :: p0 -> (
+      match stack with
+      | Bool a :: Bool b :: s0 -> eval (Bool (a || b) :: s0) trace env p0  (* OrStack *)
+      | _ :: _ :: s0           -> eval [] ("Panic" :: trace) env []        (* OrError1 *)
+      | []                     -> eval [] ("Panic" :: trace) env []        (* OrError2 *)
+      | _ :: []                -> eval [] ("Panic" :: trace) env []        (* OrError3 *)
+   )
+   | Not :: p0 -> (
+      match stack with
+      | Bool a :: s0 -> eval (Bool (not a) :: s0) trace env p0  (* NotStack *)
+      | _ :: s0      -> eval [] ("Panic" :: trace) env []       (* NotError1 *)
+      | []           -> eval [] ("Panic" :: trace) env []       (* NotError2 *)
+   )
+   | Lt :: p0 -> (
+      match stack with
+      | Int i :: Int j :: s0 -> eval (Bool (i < j) :: s0) trace env p0   (* LtStack *)
+      | _ :: _ :: s0         -> eval [] ("Panic" :: trace) env []        (* LtError1 *)
+      | []                   -> eval [] ("Panic" :: trace) env []        (* LtError2 *)
+      | _ :: []              -> eval [] ("Panic" :: trace) env []        (* LtError3 *)
+   )
+   | Gt :: p0 -> (
+      match stack with
+      | Int i :: Int j :: s0 -> eval (Bool (i > j) :: s0) trace env p0   (* GtStack *)
+      | _ :: _ :: s0         -> eval [] ("Panic" :: trace) env []        (* GtError1 *)
+      | []                   -> eval [] ("Panic" :: trace) env []        (* GtError2 *)
+      | _ :: []              -> eval [] ("Panic" :: trace) env []        (* GtError3 *)
+   )
+   | If (c1, c2) :: p0 -> (
+      match stack with
+      | Bool b :: s0 -> (
+         if b then
+         match prog with
+         | If (c1, _) :: rest_prog -> eval s0 trace env (c1 @ rest_prog)  (* IfTrue *)
+         | _                       -> eval [] ("Panic" :: trace) env []   (* IfError1 *)
+         else 
+         match prog with
+         | If (_, c2) :: rest_prog -> eval s0 trace env (c2 @ rest_prog)  (* IfFalse *)
+         | _                       -> eval [] ("Panic" :: trace) env []   (* IfError2 *)
+      )
+      | _                          -> eval [] ("Panic" :: trace) env []   (* IfError3 *)
+   )
+   | Bind :: p0 -> (
+      match stack with
+      | Sym x :: v :: s0 -> eval s0 trace ((x, v) :: env) p0   (* BindStack *)
+      | _                -> eval [] ("Panic" :: trace) env []  (* BindError *)
+   )
+   | Lookup :: p0 -> (
+      match stack with
+      | Sym x :: s0 -> (
+         match custom_lookup (x) (env) with
+         | Some v -> eval (v :: s0) trace env p0        (* LookupStack *)
+         | _      -> eval [] ("Panic" :: trace) env []  (* LookupError *)
+      )
+      | _         -> eval [] ("Panic" :: trace) env []  (* LookupError *)
+   )
+   | Fun c :: p0 -> (
+      match stack with
+      | Sym x :: s0 ->
+         let closure = Closure (x, env, c) in
+         eval (closure :: s0) trace env p0      (* FunStack *)
+      | _ -> eval [] ("Panic" :: trace) env []  (* FunError *)
+   )
+   | Call :: p0-> (
+      match stack with
+      | Closure (f, vf, c) :: a :: s0 ->
+         let new_env = (f, Closure (f, vf, c)) :: vf in
+         let cc_closure = Closure ("cc", env, p0) in
+         eval (a :: cc_closure :: s0) trace new_env c  (* CallStack *)
+      | _ -> eval [] ("Panic" :: trace) env []         (* CallError *)
+   )
+   | Return :: p0 -> (
+      match stack with
+      | Closure (f, vf, c) :: a :: s0 ->
+         let new_env = vf in
+         eval (a :: s0) trace new_env c         (* ReturnStack *)
+      | _ -> eval [] ("Panic" :: trace) env []  (* ReturnError *)
+   )
 
 (* ------------------------------------------------------------ *)
 
 (* putting it all together [input -> parser -> eval -> output] *)
 
 let interp (s : string) : string list option =
-  match string_parse (whitespaces >> parse_coms ()) s with
-  | Some (p, []) -> Some (eval [] [] [] p)
-  | _ -> None
+   match string_parse (whitespaces >> parse_coms ()) s with
+   | Some (p, []) -> Some (eval [] [] [] p)
+   | _ -> None
 
 (* ------------------------------------------------------------ *)
 
+(* interp from file *)
+
+let read_file (fname : string) : string =
+  let fp = open_in fname in
+  let s = string_make_fwork (fun work ->
+      try
+        while true do
+          work (input_char fp)
+        done
+      with _ -> ())
+  in
+  close_in fp; s
+
+let interp_file (fname : string) : string list option =
+  let src = read_file fname in
+  interp src
+
+(* ------------------------------------------------------------ *)
+
+(* tests *)
+
+let test_polynomial () =
+   let program = "Push 3; Push 3; Mul; Push -4; Push 3; Mul; Add; Push 7; Add; Trace;" in
+   let result = interp program in
+   print_endline ("Test Polynomial: " ^ (String.concat "; " (Option.get result)));
+   assert (result = Some ["4"])
+ 
+let test_de_morgans_law () =
+   let program = "Push False; Push False; And; Not; Trace; Push False; Not; Push False; Not; Or; Trace;" in
+   let result = interp program in
+   print_endline ("Test De Morgan's Law: " ^ (String.concat "; " (Option.get result)));
+   assert (result = Some ["True"; "True"])
+
+let test_monotonic () =
+   let program = "Push 2; Push 2; Mul; Push 3; Push 3; Mul; Gt; Trace;" in
+   let result = interp program in
+   print_endline ("Test Monotonicity of x^2: " ^ (String.concat "; " (Option.get result)));
+   assert (result = Some ["True"])
+
+let test_empty_stack_pop () =
+   let program = "Pop;" in
+   let result = interp program in
+   print_endline ("Test Empty Stack Pop: " ^ (String.concat "; " (Option.get result)));
+   assert (result = Some ["Panic"])
+
+let test_invalid_addition () =
+   let program = "Push True; Push 3; Add;" in
+   let result = interp program in
+   print_endline ("Test Invalid Addition: " ^ (String.concat "; " (Option.get result)));
+   assert (result = Some ["Panic"])
+
+let test_invalid_and () =
+   let program = "Push 3; Push False; And;" in
+   let result = interp program in
+   print_endline ("Test Invalid And: " ^ (String.concat "; " (Option.get result)));
+   assert (result = Some ["Panic"])
+    
+let test_swap_single_element () =
+   let program = "Push 1; Swap;" in
+   let result = interp program in
+   print_endline ("Test Swap Single Element: " ^ (String.concat "; " (Option.get result)));
+   assert (result = Some ["Panic"])
+    
+let () =
+   print_endline "Starting tests...";
+   test_polynomial ();
+   test_de_morgans_law ();
+   test_monotonic ();
+   test_empty_stack_pop ();
+   test_invalid_addition ();
+   test_invalid_and ();
+   test_swap_single_element ();
+   print_endline "All tests passed successfully!"
+
+(* ------------------------------------------------------------ *)
