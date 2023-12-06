@@ -147,7 +147,9 @@ let str_of_char (c : char) : string =
    str(c)
 
 let str_of_closure (name : string) (env : env) (cmds : coms) : string =
-   "Fun<" ^ name ^ ">"
+   let fun_str = "Fun" in
+   let combined_str = string_cons '<' (string_append fun_str (string_snoc name '>')) in
+   combined_str
 
 let toString (c : const) : string =
   match c with
