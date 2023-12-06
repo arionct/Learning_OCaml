@@ -18,7 +18,6 @@ type const =
   | Int of int
   | Bool of bool
   | Unit
-  | Char of char
   | Sym of string
   | Closure of string * env * coms
 
@@ -53,10 +52,6 @@ let parse_bool =
 let parse_unit =
   keyword "Unit" >> pure Unit
 
-let parse_char =
-   let is_lowercase_letter c = c >= 'a' && c <= 'z' in
-   let* c = satisfy is_lowercase_letter << whitespaces in
-   pure (Char c)
 
 let is_sym_char c = 
    (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')
@@ -96,7 +91,6 @@ let parse_const =
   parse_int <|>
   parse_bool <|>
   parse_unit <|>
-  parse_char <|>
   parse_sym
 
 let parse_if_else parse_coms =
@@ -170,20 +164,14 @@ let str_of_int (n : int) : string =
 let str_of_char (c : char) : string =
    str(c)
 
-let str_of_closure (name : string) (env : env) (cmds : coms) : string =
-   let fun_str = "Fun" in
-   let combined_str = string_cons '<' (string_append fun_str (string_snoc name '>')) in
-   combined_str
-
 let toString (c : const) : string =
   match c with
   | Int i -> str_of_int i
   | Bool true -> "True"
   | Bool false -> "False"
   | Unit -> "Unit"
-  | Char ch -> str_of_char ch
   | Sym s -> s
-  | Closure (name, env, cmds) -> str_of_closure name env cmds
+  | Closure (x, _, _) -> "Fun<" ^ x ^ ">"
 
 let rec custom_lookup key env =
    match env with
