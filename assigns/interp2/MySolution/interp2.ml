@@ -62,8 +62,11 @@ let is_sym_char c =
    (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')
    
 let string_of_char_list char_list =
-   String.concat "" (List.map (String.make 1) char_list)
-    
+   let rec aux acc = function
+      | [] -> acc
+      | c :: cs -> aux (string_snoc acc c) cs
+   in aux "" char_list;;
+     
 let parse_sym =
    let* sym_chars = many1 (satisfy is_sym_char) << whitespaces in
    pure (Sym (string_of_char_list sym_chars))
@@ -161,6 +164,14 @@ let toString (c : const) : string =
   | Sym s -> s
   | Closure (name, env, cmds) -> str_of_closure name env cmds
 
+let rec custom_lookup key env =
+   match env with
+   | [] -> None
+   | (k, v) :: tail -> 
+      if k = key then Some v 
+      else custom_lookup key tail
+ 
+
 let rec eval (s : stack) (t : trace) (v: env) (p : prog) : trace =
   match p with
   (* termination state returns the trace *)
@@ -250,7 +261,7 @@ let rec eval (s : stack) (t : trace) (v: env) (p : prog) : trace =
   | Lookup :: p0 ->
     (match s with
      | Sym x :: s0 -> 
-         (match List.assoc_opt x v with
+         (match custom_lookup x v with
          | Some value -> eval (value :: s0) t v p0
          | None       -> eval [] ("Panic" :: t) [] []) (* LookupError3 *)
      | [] -> eval [] ("Panic" :: t) [] [] (* LookupError2 *)
