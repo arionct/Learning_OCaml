@@ -328,4 +328,91 @@ let parse_prog (s : string) : expr =
   | Some (m, []) -> scope_expr m
   | _ -> raise SyntaxError
 
-let compile (s : string) : string = (* YOUR CODE *)
+
+(* ------------------------------------------------------------ *)
+
+(* compiler *)
+
+let (^) = string_append
+
+let rec compile_expr scope = function
+  | Int n -> "Push " ^ string_of_int n ^ ";\n"
+  | Bool b -> "Push " ^ (if b then "True" else "False") ^ ";\n"
+  | Unit -> "Push Unit;\n"
+  | Var x -> (
+    match find_var scope x with
+    | None -> raise (UnboundVariable x)
+    | Some v -> "Push " ^ v ^ ";\nLookup;\n"
+  )
+  | Seq (expr1, expr2) ->
+    (compile_expr scope expr1) ^ "\nPop;\n" ^ (compile_expr scope expr2)
+  | Ifte (cond, expr_then, expr_else) ->
+    comp_if scope cond expr_then expr_else
+  | Fun (f, x, m) ->
+    comp_fun scope f x m
+  | App (m, n) ->
+    (compile_expr scope m) ^ "\n" ^ (compile_expr scope n) ^ "\nSwap;\nCall;"
+  | Let (x, m, n) ->
+    comp_let scope x m n
+  | Trace expr ->
+    (compile_expr scope expr) ^ "\nTrace;"
+  | UOpr (Neg, expr) -> (compile_expr scope expr) ^ "\nPush -1;\nMul;"
+  | UOpr (Not, expr) -> (compile_expr scope expr) ^ "\nNot;"
+  | BOpr (Add, expr1, expr2) -> (compile_expr scope expr1) ^ "\n" ^ (compile_expr scope expr2) ^ "\nSwap;\nAdd;"
+  | BOpr (Sub, expr1, expr2) -> (compile_expr scope expr1) ^ "\n" ^ (compile_expr scope expr2) ^ "\nSwap;\nSub;"
+  | BOpr (Mul, expr1, expr2) -> (compile_expr scope expr1) ^ "\n" ^ (compile_expr scope expr2) ^ "\nSwap;\nMul;"
+  | BOpr (Div, expr1, expr2) -> (compile_expr scope expr1) ^ "\n" ^ (compile_expr scope expr2) ^ "\nSwap;\nDiv;"
+  | BOpr (And, expr1, expr2) -> (compile_expr scope expr1) ^ "\n" ^ (compile_expr scope expr2) ^ "\nAnd;"
+  | BOpr (Or, expr1, expr2) -> (compile_expr scope expr1) ^ "\n" ^ (compile_expr scope expr2) ^ "\nOr;"
+  | BOpr (Mod, expr1, expr2) -> comp_mod scope expr1 expr2
+  | BOpr (Lt, expr1, expr2) -> (compile_expr scope expr1) ^ "\n" ^ (compile_expr scope expr2) ^ "\nSwap;\nLt;"
+  | BOpr (Gt, expr1, expr2) -> (compile_expr scope expr1) ^ "\n" ^ (compile_expr scope expr2) ^ "\nSwap;\nGt;"
+  | BOpr (Lte, expr1, expr2) -> (compile_expr scope (BOpr (Gt, expr1, expr2))) ^ "\nNot;"
+  | BOpr (Gte, expr1, expr2) -> (compile_expr scope (BOpr (Lt, expr1, expr2))) ^ "\nNot;"
+  | BOpr (Eq, expr1, expr2) -> comp_eq scope expr1 expr2
+and comp_if scope cond expr_then expr_else =
+  let ccond = compile_expr scope cond in
+  let cthen = compile_expr scope expr_then in
+  let celse = compile_expr scope expr_else in
+  ccond ^ "\n" ^ "If " ^ cthen ^ " Else " ^ celse ^ " End;\n"
+and comp_fun scope f x m =
+  let fvar = new_var f in
+  let fscope = (f, fvar) :: scope in
+  let xvar = new_var x in
+  let xscope = (x, xvar) :: fscope in
+  let a = compile_expr xscope m in
+  "Push " ^ fvar ^ "; Fun Push " ^ xvar ^ "; Bind; " ^ a ^ " Swap; Return; End;\n"
+and comp_let scope x m n =
+  let xvar = new_var x in
+  let a = compile_expr scope m in
+  let b = compile_expr ((x, xvar) :: scope) n in
+  a ^ "Push " ^ xvar ^ "; Bind; " ^ b
+and comp_mod scope a b =
+  let c1 = compile_expr scope a in
+  let c2 = compile_expr scope b in
+  let d = compile_expr scope (BOpr (Div, a, b)) in
+  d ^ c2 ^ "Mul; " ^ c1 ^ "Sub;\n"
+and comp_eq scope a b =
+  let c1 = compile_expr scope (BOpr (Lt, a, b)) in
+  let c2 = compile_expr scope (BOpr (Gt, a, b)) in
+  c1 ^ "Not; " ^ c2 ^ "Not; And;\n"
+
+let compile (s: string) : string =
+  let ast = parse_prog s in
+  compile_expr [] (scope_expr (ast))
+
+
+(* Test Function *)
+let test_compile input expected_trace =
+  let output = compile input in
+  print_string ("Test: " ^ input ^ "\n");
+  print_string ("Expected: " ^ expected_trace ^ "\n");
+  print_string ("Got: " ^ output ^ "\n\n")
+
+(* Test Cases *)
+let () =
+  test_compile "trace 1; trace 2" "[\"2\", \"1\"]";
+  test_compile "let rec fact x = if x <= 0 then 1 else x * fact (x - 1) in trace (fact 10)" "[\"3628800\"]";
+  test_compile "let fibo x = let rec loop i a b = trace a; if i < x then loop (i + 1) b (a + b) else a in loop 0 0 1 in trace (fibo 10)" "[\"55\", \"55\", \"34\", \"21\", \"13\", \"8\", \"5\", \"3\", \"2\", \"1\", \"1\", \"0\"]";
+  test_compile "let eff x = trace x in let foo x y z = () in foo (eff 1) (eff 2) (eff 3)" "[\"3\", \"2\", \"1\"]";
+  test_compile "let rec mccarthy n = if n > 100 then n - 10 else mccarthy (mccarthy (n + 11)) in trace (mccarthy 22)" "[\"91\"]";
